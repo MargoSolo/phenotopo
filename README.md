@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/phenotopo.svg)](https://pypi.org/project/phenotopo/)
-[![version](https://img.shields.io/badge/version-0.5.0-informational.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-0.5.1-informational.svg)](CHANGELOG.md)
 
 Two things go wrong when a rare-disease cohort is analysed by HPO terms.
 

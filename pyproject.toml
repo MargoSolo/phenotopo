@@ -4,10 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "phenotopo"
-version = "0.5.0"
-description = "Phenotype QC, outlier detection and robust cohort structure for HPO / Phenopacket rare-disease cohorts."
+version = "0.5.1"
+description = "A QC and explainability toolkit for phenotype cohorts: HPO/Phenopacket quality control, annotation-bias checks, outliers, ontology-aware group comparison and robust cohort structure."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [{ name = "Margarita Soloshenko", email = "margosoloshenko@mail.ru" }]
 keywords = ["phenotype", "HPO", "Phenopacket", "rare disease", "quality control", "outlier detection", "genotype-phenotype", "visualization", "PAGA"]
@@ -15,7 +16,6 @@ classifiers = [
   "Development Status :: 4 - Beta",
   "Operating System :: OS Independent",
   "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering :: Bio-Informatics",
   "Topic :: Scientific/Engineering :: Visualization",
@@ -40,6 +40,8 @@ phenotopo = "phenotopo.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/MargoSolo/phenotopo"
+Documentation = "https://github.com/MargoSolo/phenotopo#readme"
+Changelog = "https://github.com/MargoSolo/phenotopo/blob/main/CHANGELOG.md"
 Issues = "https://github.com/MargoSolo/phenotopo/issues"
 
 [tool.hatch.build.targets.wheel]

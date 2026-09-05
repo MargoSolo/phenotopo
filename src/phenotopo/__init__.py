@@ -48,7 +48,7 @@ from . import cli, cohort, data, explain, hyperbolic, mapper, outliers, qc, repo
 from .robustness import connectivity_robustness, plot_forest
 from .stats import benjamini_hochberg, bootstrap_ratio, permutation_test
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 __all__ = [
     "Cohort", "Ontology", "from_hpo_table", "from_phenopackets",
     "phenotype_qc", "annotation_bias", "plot_qc", "patient_outliers", "explain_outlier",

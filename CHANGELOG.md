@@ -2,6 +2,16 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is [SemVer](https://semver.org/).
 
+## [0.5.1] — 2026-09-05
+
+### Fixed
+- Package metadata: the summary shown on PyPI was still the 0.4.0 one; the license is
+  now the SPDX expression `MIT` rather than the full licence text pasted into the
+  metadata field; added Documentation and Changelog project URLs.
+
+### Added
+- `.zenodo.json`, so an archived release carries proper software metadata.
+
 ## [0.5.0] — 2026-09-05
 
 ### Changed

@@ -1,0 +1,37 @@
+{
+  "title": "phenotopo: a QC and explainability toolkit for phenotype cohorts",
+  "description": "<p>phenotopo turns HPO / GA4GH Phenopacket rare-disease cohorts into phenotyping quality control, annotation-bias checks, patient outliers, ontology-aware group comparison and robust cohort structure. It is built around two ways a phenotype cohort misleads: bookkeeping mistaken for biology (annotation depth that tracks a site or a clinician), and clusters read into what is really a continuum. Group comparisons use a Westfall-Young max-T permutation that respects the ontology's parent-child dependence together with an explicit effect-size threshold; connectivity results are reported only where they survive a change of distance, of neighbourhood size and of resampling. Everything runs locally.</p>",
+  "upload_type": "software",
+  "license": "MIT",
+  "access_right": "open",
+  "creators": [
+    {
+      "name": "Soloshenko, Margarita",
+      "affiliation": ""
+    }
+  ],
+  "keywords": [
+    "Human Phenotype Ontology",
+    "HPO",
+    "GA4GH Phenopackets",
+    "rare disease",
+    "quality control",
+    "outlier detection",
+    "genotype-phenotype correlation",
+    "semantic similarity",
+    "permutation test",
+    "Python"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://pypi.org/project/phenotopo/",
+      "relation": "isIdenticalTo",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://github.com/MargoSolo/phenotopo",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ]
+}

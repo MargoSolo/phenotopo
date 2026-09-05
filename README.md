@@ -2,8 +2,10 @@
 
 **Continuum-honest maps of phenotype cohorts.**
 
+[![tests](https://github.com/MargoSolo/phenotopo/actions/workflows/tests.yml/badge.svg)](https://github.com/MargoSolo/phenotopo/actions/workflows/tests.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![version](https://img.shields.io/badge/version-0.3.0-informational.svg)](CHANGELOG.md)
 
 A cohort of rare-disease patients described by HPO terms is, more often than not,
 a **continuum with local structure** — not a set of well-separated islands. The
@@ -87,6 +89,29 @@ recomputes every ratio each time, and reports for each pair the null mean and
 q-values across all pairs. Cells marked `*` survive multiple-testing correction.
 `bootstrap_ratio` adds a percentile interval for the estimate itself from
 repeated patient subsamples.
+
+### 1c · The robustness protocol — what actually goes in a paper
+
+A ratio from one distance, one *k* and one sample is a single draw. Before any
+connectivity claim is reported it should survive a grid of reasonable choices:
+
+```python
+from phenotopo import connectivity_robustness, plot_forest
+
+res = connectivity_robustness({"cosine": D_cos, "simgic": D_gic}, labels,
+                              ks=(10, 15, 30), min_size=100)
+res["summary"]          # one row per pair: ratio, CI, range across configs, verdict
+plot_forest(res)
+```
+
+The protocol (i) drops groups below `min_size` — their expected edge counts are
+tiny and their ratios explode; (ii) recomputes every ratio for every
+distance × *k* with a permutation *q* and a bootstrap CI; (iii) applies an
+**effect-size threshold**, not just significance (default: *blend*/*cohesive*
+ratio > 1.5 with CI above 1; *separation* ratio < 0.5); and (iv) issues a verdict
+only if the criterion holds in **every** configuration. Points that pile up on
+top of each other across configurations are the visual proof; a verdict that
+survives is the sentence you can write.
 
 ### 2 · Density contours
 
@@ -172,7 +197,12 @@ behind modularity), so large groups are not rewarded merely for being large.
 | `phenotopo.hyperbolic` | `poincare_terms`, `einstein_midpoint`, `place_patients`, `radial_specificity`, `plot_disk` |
 | `phenotopo.mapper` | `mapper_graph`, `node_values`, `plot_mapper` |
 | `phenotopo.stats` | `permutation_test`, `bootstrap_ratio`, `benjamini_hochberg` |
+| `phenotopo.robustness` | `connectivity_robustness`, `plot_forest` |
 | `phenotopo.data` | `synthetic_cohort`, `synthetic_hierarchy`, `synthetic_term_lists` |
+
+## Citation
+
+See [`CITATION.cff`](CITATION.cff).
 
 ## Tests
 

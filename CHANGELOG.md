@@ -2,6 +2,14 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is [SemVer](https://semver.org/).
 
+## [0.3.0] — 2026-09-03
+
+### Added
+- `robustness.connectivity_robustness`: the multi-configuration protocol (distances × k,
+  minimum group size, effect-size thresholds, all-configurations verdicts) and
+  `robustness.plot_forest`.
+- Continuous integration (pytest on push / pull request), `CITATION.cff`.
+
 ## [0.2.0] — 2026-09-03
 
 ### Added

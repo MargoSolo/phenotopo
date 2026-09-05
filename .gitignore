@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+.DS_Store
+.vscode/
+.idea/
+
+# never commit cohort data, ontology dumps or analysis output
+*.obo
+*.hpoa
+*.xlsx
+*.csv
+*.png
+*.pdf
+*.svg
+# ... except the README figures produced by the synthetic example
+!examples/figures/*.png

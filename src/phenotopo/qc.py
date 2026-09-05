@@ -28,10 +28,17 @@ def phenotype_qc(cohort, min_terms: int = 3, specificity_pct: float = 10.0) -> d
         A :class:`phenotopo.cohort.Cohort`.
     min_terms
         A patient with at most this many asserted terms is flagged
-        ``under-phenotyped``.
+        ``LOW_ANNOTATION_DEPTH``.
     specificity_pct
         A patient below this percentile of mean information content is flagged
-        ``non-specific`` - the terms are there, but they are vague ones.
+        ``LOW_SPECIFICITY_RELATIVE_TO_COHORT`` - the terms are there, but they are
+        vague relative to the rest of *this* cohort.
+
+    Flags are deliberately **relative and descriptive**. Six well-chosen terms can
+    describe a skeletal dysplasia completely while fifteen vague ones describe a
+    neurodevelopmental case badly, so a flag never says a patient is
+    "under-phenotyped" in absolute terms - it says the annotation stands out against
+    this cohort and that ``review`` is recommended.
 
     Returns
     -------
@@ -46,7 +53,8 @@ def phenotype_qc(cohort, min_terms: int = 3, specificity_pct: float = 10.0) -> d
     age · ``mean_ic`` / ``total_ic`` specificity (information content) ·
     ``mean_depth`` mean ontology depth · ``n_redundant`` asserted terms that are
     ancestors of another asserted term (bookkeeping noise, not information) ·
-    ``specificity_pct`` percentile of ``mean_ic`` within the cohort · ``flags``.
+    ``specificity_pct`` percentile of ``mean_ic`` within the cohort · ``flags`` ·
+    ``review``.
     """
     ic = cohort.information_content()
     onto = cohort.ontology
@@ -78,15 +86,16 @@ def phenotype_qc(cohort, min_terms: int = 3, specificity_pct: float = 10.0) -> d
     for _, r in pat.iterrows():
         f = []
         if r["n_terms"] == 0:
-            f.append("no phenotype")
+            f.append("NO_PHENOTYPE_RECORDED")
         elif r["n_terms"] <= min_terms:
-            f.append("under-phenotyped")
+            f.append("LOW_ANNOTATION_DEPTH")
         if r["n_terms"] > 0 and r["specificity_pct"] < specificity_pct:
-            f.append("non-specific")
+            f.append("LOW_SPECIFICITY_RELATIVE_TO_COHORT")
         if r["n_redundant"] > 0:
-            f.append("redundant ancestors")
+            f.append("HIGH_REDUNDANCY")
         flags.append("; ".join(f))
     pat["flags"] = flags   # kept in cohort order, so it aligns with labels and distances
+    pat["review"] = np.where(pat["flags"] != "", "review recommended", "")
 
     n = max(len(pat), 1)
     summary = {
@@ -94,12 +103,12 @@ def phenotype_qc(cohort, min_terms: int = 3, specificity_pct: float = 10.0) -> d
         "median_terms": float(pat["n_terms"].median()),
         "iqr_terms": [float(pat["n_terms"].quantile(0.25)), float(pat["n_terms"].quantile(0.75))],
         "median_mean_ic": float(pat["mean_ic"].median()),
-        "pct_under_phenotyped": 100.0 * (pat["n_terms"] <= min_terms).sum() / n,
-        "pct_non_specific": 100.0 * (pat["specificity_pct"] < specificity_pct).sum() / n,
+        "pct_low_annotation_depth": 100.0 * (pat["n_terms"] <= min_terms).sum() / n,
+        "pct_low_specificity": 100.0 * (pat["specificity_pct"] < specificity_pct).sum() / n,
         "pct_with_redundant_terms": 100.0 * (pat["n_redundant"] > 0).sum() / n,
         "pct_with_excluded_phenotypes": 100.0 * (pat["n_excluded"] > 0).sum() / n,
         "pct_with_onset": 100.0 * (pat["n_onset"] > 0).sum() / n,
-        "pct_flagged": 100.0 * (pat["flags"] != "").sum() / n,
+        "pct_review_recommended": 100.0 * (pat["flags"] != "").sum() / n,
     }
     flagged = pat[pat["flags"] != ""].sort_values(["n_terms", "mean_ic"]).reset_index(drop=True)
     return {"patients": pat, "summary": summary, "flagged": flagged,
@@ -116,11 +125,16 @@ def annotation_bias(qc, labels, distance: np.ndarray | None = None, k: int = 15,
     1. **Do the groups differ in annotation depth at all?** Kruskal-Wallis on the
        number of terms and on mean information content, with epsilon-squared as
        the effect size (0.01 small, 0.06 moderate, 0.14 large).
-    2. **How much of the group signal is annotation depth?** If a ``distance``
-       matrix is given, group labels are predicted by cross-validated k-NN twice:
-       from the phenotype distance, and from ``features`` alone. A depth-only
-       accuracy close to the phenotype accuracy means the map is largely
-       bookkeeping.
+    2. **Could the group signal be annotation depth?** If a ``distance`` matrix is
+       given, group labels are predicted by cross-validated k-NN twice: from the
+       phenotype distance, and from ``features`` alone. The result is reported as
+       ``confound_risk`` (LOW / MODERATE / HIGH), **not** as a causal verdict:
+       annotation counts predicting the group does not establish that the group
+       separation is caused by them. A group that genuinely differs in phenotype
+       severity is often also annotated more thoroughly, and the association runs
+       group -> severity -> annotation depth. High risk means the analysis has to
+       address the confound (matching, stratification, or a depth-controlled
+       comparison), not that the finding is artifactual.
 
     ``features`` defaults to pure counts (``n_terms``, ``n_propagated``) - *how much*
     was written down. Specificity measures (``mean_ic``, ``mean_depth``) are
@@ -146,7 +160,8 @@ def annotation_bias(qc, labels, distance: np.ndarray | None = None, k: int = 15,
     tests = {}
     for col in ("n_terms", "mean_ic"):
         samples = [pat.loc[labels == g, col].to_numpy() for g in groups if (labels == g).sum() > 1]
-        if len(samples) > 1:
+        pooled = np.concatenate(samples) if samples else np.array([])
+        if len(samples) > 1 and len(np.unique(pooled)) > 1:      # kruskal is undefined for all-tied data
             h, p = kruskal(*samples)
             n_tot = sum(len(s) for s in samples)
             eps2 = float((h - len(samples) + 1) / (n_tot - len(samples))) if n_tot > len(samples) else np.nan
@@ -175,13 +190,19 @@ def annotation_bias(qc, labels, distance: np.ndarray | None = None, k: int = 15,
         base = float(pd.Series(y).value_counts(normalize=True).max())
         lift_phen, lift_depth = acc_phen - base, acc_depth - base
         share = float(np.clip(lift_depth / lift_phen, 0, 1)) if lift_phen > 1e-9 else np.nan
+        risk = ("HIGH" if share == share and share > 0.5
+                else "MODERATE" if share == share and share > 0.25 else "LOW")
         out["recovery"] = {
-            "phenotype": acc_phen, "annotation_depth_only": acc_depth, "majority_baseline": base,
-            "share_explained_by_depth": share, "k": k, "n_used": int(keep.sum()),
+            "phenotype": acc_phen, "annotation_only": acc_depth, "majority_baseline": base,
+            "annotation_share_of_lift": share, "k": k, "n_used": int(keep.sum()),
             "features": list(features),
-            "verdict": ("group signal is largely annotation depth" if share == share and share > 0.5
-                        else "annotation depth explains part of the group signal" if share == share and share > 0.25
-                        else "group signal is not explained by annotation depth"),
+            "confound_risk": risk,
+            "note": ("Annotation counts predict the group about as well as phenotype does. "
+                     "This flags a risk, it does not establish that the biological signal is "
+                     "artifactual: a group that genuinely differs in phenotype severity may also "
+                     "be annotated more thoroughly." if risk != "LOW" else
+                     "Annotation counts add little beyond the baseline, so the group signal is "
+                     "unlikely to be driven by how much was written down."),
         }
     return out
 
@@ -215,7 +236,7 @@ def plot_qc(qc, labels=None, ax=None, min_terms: int | None = None, colours=("#2
     share = 100.0 * (n <= min_terms).mean()
     axes[0].set_xlabel("HPO terms per patient")
     axes[0].set_ylabel("patients")
-    axes[0].set_title(f"{share:.0f} % at or below {min_terms} terms", fontsize=9)
+    axes[0].set_title(f"{share:.0f} % at or below {min_terms} terms (review recommended)", fontsize=9)
 
     if labels is not None:
         labels = np.asarray(labels)

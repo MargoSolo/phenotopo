@@ -34,6 +34,31 @@ def test_propagation_ic_and_distances():
         assert d[0, 1] < d[0, 2]                            # shared parent beats no overlap
     with pytest.raises(ValueError):
         c.distance("euclidean")
+    assert list(c.distances()) == ["simgic", "cosine"]       # simgic is the default first choice
+
+
+def test_excluded_phenotypes_propagate_down_and_can_enter_the_distance():
+    o = _toy_ontology()
+    c = Cohort(ids=["a", "b", "c"], present=[{"c1"}, {"c1"}, {"c1"}],
+               excluded=[{"p2"}, {"p2"}, set()], ontology=o)
+    assert c.propagated_excluded()[0] == {"p2", "c3"}        # excluding a parent excludes its children
+    assert c.has_negatives()
+    for metric in ("simgic", "cosine"):
+        plain = c.distance(metric)
+        with_neg = c.distance(metric, negatives="use")
+        assert with_neg[0, 1] < with_neg[0, 2]               # shared ruled-out phenotype brings a and b closer
+        assert with_neg[0, 1] <= plain[0, 1]
+    with pytest.raises(ValueError):
+        c.distance(negatives="maybe")
+    with pytest.raises(ValueError):
+        c.distance(onset="age_adjusted")                     # declared, not implemented
+
+
+def test_negatives_require_recorded_absence():
+    c = Cohort(ids=["a", "b"], present=[{"c1"}, {"c2"}], ontology=_toy_ontology())
+    assert not c.has_negatives()
+    with pytest.raises(ValueError):
+        c.distance(negatives="use")
 
 
 def test_from_hpo_table_keeps_metadata_and_ignores_junk():

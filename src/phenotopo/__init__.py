@@ -1,4 +1,4 @@
-"""phenotopo - continuum-honest maps of phenotype cohorts.
+"""phenotopo - a QC and explainability toolkit for phenotype cohorts.
 
 A cohort of rare-disease patients is usually a continuum with local structure,
 not a set of islands. Standard practice - one scatter plot, twenty colours,
@@ -44,18 +44,18 @@ from .layout import default_palette, plot_connectivity, plot_connectivity_heatma
 from .outliers import explain_outlier, patient_outliers
 from .qc import annotation_bias, phenotype_qc, plot_qc
 from .report import cohort_report
-from . import cohort, data, explain, hyperbolic, mapper, outliers, qc, report, robustness, stats
+from . import cli, cohort, data, explain, hyperbolic, mapper, outliers, qc, report, robustness, stats
 from .robustness import connectivity_robustness, plot_forest
 from .stats import benjamini_hochberg, bootstrap_ratio, permutation_test
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __all__ = [
     "Cohort", "Ontology", "from_hpo_table", "from_phenopackets",
     "phenotype_qc", "annotation_bias", "plot_qc", "patient_outliers", "explain_outlier",
     "explain_groups", "plot_explain", "cohort_report",
     "knn_graph", "group_connectivity", "group_centroids",
     "plot_connectivity", "plot_connectivity_heatmap", "plot_density", "plot_small_multiples", "default_palette",
-    "cohort", "data", "explain", "hyperbolic", "mapper", "outliers", "qc", "report", "stats",
+    "cli", "cohort", "data", "explain", "hyperbolic", "mapper", "outliers", "qc", "report", "stats",
     "permutation_test", "bootstrap_ratio", "benjamini_hochberg",
     "robustness", "connectivity_robustness", "plot_forest", "__version__",
 ]

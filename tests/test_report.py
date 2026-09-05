@@ -6,9 +6,9 @@ from phenotopo.data import synthetic_hpo_cohort
 
 def test_report_is_one_self_contained_file(tmp_path):
     c = synthetic_hpo_cohort(n=150, seed=4)
-    d = c.distance("cosine")
+    d = c.distance()
     comparison = explain_groups(c, c.labels("diagnosis"), "GENE_A", "GENE_B", n_perm=100, min_effect=0.15)
-    rob = connectivity_robustness({"cosine": d, "simgic": c.distance("simgic")},
+    rob = connectivity_robustness(c.distances(),
                                   c.labels("diagnosis"), ks=(10,), min_size=20,
                                   n_perm=50, n_boot=10)
     path = cohort_report(c, labels="diagnosis", distance=d, path=str(tmp_path / "r.html"),

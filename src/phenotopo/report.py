@@ -103,18 +103,19 @@ def cohort_report(
     parts.append(_cards([
         ("patients", len(cohort)),
         ("median HPO terms", f"{s['median_terms']:.0f}"),
-        ("under-phenotyped", f"{s['pct_under_phenotyped']:.0f} %"),
-        ("non-specific", f"{s['pct_non_specific']:.0f} %"),
+        ("low annotation depth", f"{s['pct_low_annotation_depth']:.0f} %"),
+        ("low specificity", f"{s['pct_low_specificity']:.0f} %"),
         ("with excluded phenotypes", f"{s['pct_with_excluded_phenotypes']:.0f} %"),
         ("with onset recorded", f"{s['pct_with_onset']:.0f} %"),
     ]))
 
     parts.append("<h2>Phenotyping quality</h2>")
-    parts.append(f'<p class="note">Flagged: <b>{s["pct_flagged"]:.0f} %</b> of patients — '
-                 f'{s["pct_under_phenotyped"]:.0f} % with ≤ {qc["thresholds"]["min_terms"]} terms, '
-                 f'{s["pct_non_specific"]:.0f} % below the {qc["thresholds"]["specificity_pct"]:.0f}th percentile of '
-                 f'information content, {s["pct_with_redundant_terms"]:.0f} % carrying redundant ancestor terms. '
-                 f'Worst-annotated patients first.</p>')
+    parts.append(f'<p class="note">Review recommended for <b>{s["pct_review_recommended"]:.0f} %</b> of patients — '
+                 f'{s["pct_low_annotation_depth"]:.0f} % with ≤ {qc["thresholds"]["min_terms"]} terms, '
+                 f'{s["pct_low_specificity"]:.0f} % below the {qc["thresholds"]["specificity_pct"]:.0f}th percentile of '
+                 f'information content within this cohort, {s["pct_with_redundant_terms"]:.0f} % carrying redundant '
+                 f'ancestor terms. Flags are relative to this cohort and descriptive: a short, well-chosen '
+                 f'phenotype list is not necessarily a poor one.</p>')
     try:
         parts.append(_fig_to_img(plot_qc(qc, labels)))
     except Exception:
@@ -131,12 +132,12 @@ def cohort_report(
                          f'ε² = {t["epsilon_sq"]:.3f} ({t["effect"]} effect).</p>')
         r = bias.get("recovery")
         if r:
-            cls = "warn" if r["share_explained_by_depth"] == r["share_explained_by_depth"] and \
-                r["share_explained_by_depth"] > 0.5 else "ok"
+            cls = "warn" if r["confound_risk"] != "LOW" else "ok"
             parts.append(f'<p class="note">Group recovery by cross-validated k-NN: phenotype '
-                         f'<b>{r["phenotype"]:.1%}</b>, annotation depth alone <b>{r["annotation_depth_only"]:.1%}</b>, '
-                         f'majority baseline {r["majority_baseline"]:.1%} → '
-                         f'<span class="{cls}">{html.escape(r["verdict"])}</span>.</p>')
+                         f'<b>{r["phenotype"]:.1%}</b>, annotation counts alone <b>{r["annotation_only"]:.1%}</b>, '
+                         f'majority baseline {r["majority_baseline"]:.1%} → annotation-confound risk '
+                         f'<span class="{cls}">{html.escape(r["confound_risk"])}</span>. '
+                         f'{html.escape(r["note"])}</p>')
 
     if distance is not None:
         out = patient_outliers(distance, labels, ids=cohort.ids, k=k)

@@ -84,7 +84,9 @@ def explain_groups(
 
     Columns: ``term``, ``name``, ``ic``, ``prevalence_a``/``_b``, ``effect_pp``
     (percentage points, positive = enriched in ``group_a``), ``ci_lo_pp``/``ci_hi_pp``,
-    ``p``, ``p_adjusted``, ``n_a``/``n_b``, ``redundant_with``.
+    ``p``, ``p_adjusted``, ``n_a``/``n_b``, ``excluded_a``/``_b`` (fraction in whom the
+    phenotype was **looked for and ruled out**, reported but never mixed into the
+    test), ``redundant_with``.
     """
     labels = np.asarray(labels)
     if len(labels) != len(cohort):
@@ -139,6 +141,23 @@ def explain_groups(
         p_adj = benjamini_hochberg(p)
         method = "Fisher exact + Benjamini-Hochberg (assumes independence the ontology lacks)"
 
+    # Explicitly excluded phenotypes are reported alongside, never mixed into the
+    # test: "not recorded" and "looked for and absent" are different observations,
+    # and only the second is evidence of absence.
+    excl = cohort.propagated_excluded()
+    if any(excl):
+        E = np.zeros((len(idx), len(terms)), dtype=np.float32)
+        pos_of = {t: j for j, t in enumerate(terms)}
+        for r, i in enumerate(idx):
+            for t in excl[i]:
+                j = pos_of.get(t)
+                if j is not None:
+                    E[r, j] = 1.0
+        excluded_a = (in_a @ E) / n_a
+        excluded_b = ((1.0 - in_a) @ E) / n_b
+    else:
+        excluded_a = excluded_b = np.zeros(len(terms))
+
     ci = [_wilson_diff_ci(int(a), n_a, int(b), n_b) for a, b in zip(count_a, count_b)]
     table = pd.DataFrame({
         "term": terms,
@@ -148,6 +167,7 @@ def explain_groups(
         "effect_pp": 100.0 * effect,
         "ci_lo_pp": [100.0 * c[0] for c in ci], "ci_hi_pp": [100.0 * c[1] for c in ci],
         "p": p, "p_adjusted": p_adj, "n_a": n_a, "n_b": n_b,
+        "excluded_a": excluded_a, "excluded_b": excluded_b,
     })
     table["redundant_with"] = ""
 

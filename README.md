@@ -1,11 +1,12 @@
 # phenotopo
 
-**Phenotype QC, outliers and honest cohort structure for HPO / Phenopacket rare-disease cohorts.**
+**A QC and explainability toolkit for phenotype cohorts.**
 
 [![tests](https://github.com/MargoSolo/phenotopo/actions/workflows/tests.yml/badge.svg)](https://github.com/MargoSolo/phenotopo/actions/workflows/tests.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-0.4.0-informational.svg)](CHANGELOG.md)
+[![PyPI](https://img.shields.io/pypi/v/phenotopo.svg)](https://pypi.org/project/phenotopo/)
+[![version](https://img.shields.io/badge/version-0.5.0-informational.svg)](CHANGELOG.md)
 
 Two things go wrong when a rare-disease cohort is analysed by HPO terms.
 
@@ -17,27 +18,50 @@ usually a continuum with local structure, and one UMAP with twenty colours invit
 everyone to read islands into it.
 
 `phenotopo` is built around those two failures. It scores how well each patient was
-phenotyped and tests whether the group signal survives that; it finds the patients
-who sit away from their own group; it says which phenotypes actually separate two
-groups, tested in a way that respects the ontology; and it reports cohort structure
-only where the answer survives a change of distance, of *k* and of resampling.
+phenotyped and flags when the group signal might be bookkeeping; it finds the
+patients who sit away from their own group; it says which phenotypes actually
+separate two groups, tested in a way that respects the ontology; and it reports
+cohort structure only where the answer survives a change of distance, of *k* and of
+resampling. Treating a cohort as a continuum rather than a set of clusters is the
+methodology underneath; QC and explainability are what it is for.
 
-Everything runs locally. No patient data leaves the machine, and the package makes
-no network calls.
+Everything runs locally. No patient data leaves the machine, and the library makes
+no network calls — the single exception is the explicit `phenotopo ontology install`
+command, which prints the URL it fetches.
+
+```bash
+pip install phenotopo
+phenotopo demo          # a report from a synthetic cohort, in a browser, in 30 seconds
+```
 
 ---
 
 ## Installation
 
 ```bash
-pip install -e .                 # core: cohorts, QC, outliers, comparison, connectivity
-pip install -e ".[hyperbolic]"   # + Poincaré disk (gensim)
-pip install -e ".[tda]"          # + Mapper graph (kmapper)
-pip install -e ".[all]"          # everything, incl. umap-learn
+pip install phenotopo                 # core: cohorts, QC, outliers, comparison, connectivity
+pip install "phenotopo[hyperbolic]"   # + Poincaré disk (gensim)
+pip install "phenotopo[tda]"          # + Mapper graph (kmapper)
+pip install "phenotopo[all]"          # everything, incl. umap-learn
 ```
+
+For development, clone the repository and `pip install -e ".[dev]"`.
 
 If `adjustText` is installed, overlapping labels on the connectivity graph and the
 Poincaré disk are pushed apart automatically; without it the plots still work.
+
+## Without writing Python
+
+```bash
+phenotopo demo                                             # see what a report looks like
+phenotopo ontology install hp                              # cache the HPO release once
+phenotopo report patients/ --labels diagnosis --compare GENE_A GENE_B -o report.html
+```
+
+`report` takes a directory of Phenopackets, a single `.json` packet, or a CSV/XLSX
+table of HPO terms, and writes the same self-contained HTML file the Python API
+produces. This is not a substitute for a real interface — it is what makes the tool
+usable by someone who will not open a notebook.
 
 ## Quick start
 
@@ -45,15 +69,15 @@ Poincaré disk are pushed apart automatically; without it the plots still work.
 import phenotopo as pt
 
 cohort = pt.from_phenopackets("patients/", ontology="hp.obo")   # or from_hpo_table(df, ...)
-qc     = pt.phenotype_qc(cohort)                                # who was phenotyped thinly?
-bias   = pt.annotation_bias(qc, cohort.labels("site"),          # is the group signal bookkeeping?
-                            distance=cohort.distance("cosine"))
-out    = pt.patient_outliers(cohort.distance("cosine"),         # who sits away from their group?
-                             cohort.labels("diagnosis"), ids=cohort.ids)
+D      = cohort.distance()                                      # SimGIC, the ontology-aware default
+qc     = pt.phenotype_qc(cohort)                                # how was each patient annotated?
+bias   = pt.annotation_bias(qc, cohort.labels("site"),          # could the group signal be bookkeeping?
+                            distance=D)
+out    = pt.patient_outliers(D, cohort.labels("diagnosis"),     # who sits away from their group?
+                             ids=cohort.ids)
 diff   = pt.explain_groups(cohort, cohort.labels("gene"),       # which phenotypes separate them?
                            "GENE_A", "GENE_B")
-pt.cohort_report(cohort, labels="diagnosis",                    # one local HTML file
-                 distance=cohort.distance("cosine"),
+pt.cohort_report(cohort, labels="diagnosis", distance=D,        # one local HTML file
                  comparisons=diff, path="cohort_report.html")
 ```
 
@@ -61,10 +85,29 @@ A `Cohort` is optional throughout: every analysis function also takes a plain
 distance matrix and an array of labels, so `phenotopo` sits on top of a pipeline
 you already have rather than replacing it.
 
+### Similarity, and which fields are actually used
+
+`cohort.distance()` is **SimGIC** — the IC-weighted Jaccard of the propagated term
+sets (Pesquita et al. 2008), the ontology-aware measure the HPO literature uses.
+`distance("cosine")` (cosine between IC-weighted propagated vectors) is kept as a
+sensitivity analysis, and `cohort.distances()` returns both, ready to hand to the
+robustness protocol. Both are hierarchy-aware: two patients sharing no term but
+sharing an ancestor are still similar.
+
 `from_phenopackets` reads GA4GH Phenopackets v2 and keeps what a bare list of term
-IDs throws away — **excluded** phenotypes (looked for and absent), **onset** per
-observation, and the disease and gene from `interpretations`, so
-`explain_groups(..., "gene")` works straight after reading.
+IDs throws away. What each field currently affects — stated plainly, because storing
+a field is not the same as using it:
+
+| Field | Read | Used by |
+|---|---|---|
+| present phenotypes | yes | everything |
+| **excluded** phenotypes (looked for and absent) | yes | `phenotype_qc`; `distance(..., negatives="use")`, where a shared ruled-out phenotype makes two patients more similar; reported as a separate column by `explain_groups` and never mixed into the test |
+| **onset** per observation | yes | `phenotype_qc` completeness only — `distance(..., onset=...)` is declared and raises, rather than pretending |
+| disease, gene, sex | yes | metadata, so `labels("gene")` and `explain_groups` work straight after reading |
+
+`not recorded` and `looked for and absent` are different observations, and only the
+second is evidence of absence — so negatives are opt-in and refuse to run on a cohort
+where absence was never recorded.
 
 ---
 
@@ -76,7 +119,7 @@ ground truth.
 
 ```python
 qc = pt.phenotype_qc(cohort)
-qc["summary"]        # median terms, % under-phenotyped, % non-specific, % redundant, ...
+qc["summary"]        # median terms, % low depth, % low specificity, % redundant, ...
 qc["flagged"]        # worst-annotated patients first, with reasons
 pt.plot_qc(qc, cohort.labels("site"))
 ```
@@ -86,22 +129,33 @@ pt.plot_qc(qc, cohort.labels("site"))
 Per patient: terms asserted and after propagation, explicitly excluded phenotypes,
 observations with an onset, mean and total information content, mean ontology depth,
 **redundant ancestor terms** (a term recorded next to its own child — bookkeeping, not
-information), the specificity percentile, and a flag: *under-phenotyped*,
-*non-specific*, *redundant ancestors*.
+information), the specificity percentile, and flags.
+
+The flags are deliberately **relative to this cohort and descriptive**:
+`LOW_ANNOTATION_DEPTH`, `LOW_SPECIFICITY_RELATIVE_TO_COHORT`, `HIGH_REDUNDANCY`,
+resolving to `review recommended`. Six well-chosen terms can describe a skeletal
+dysplasia completely while fifteen vague ones describe a neurodevelopmental case
+badly, so the tool never declares a patient "under-phenotyped" in absolute terms.
 
 Then the question that decides whether any of the rest can be believed:
 
 ```python
 bias = pt.annotation_bias(qc, labels, distance=D)
 bias["kruskal"]      # do the groups differ in annotation depth? H, p, epsilon-squared
-bias["recovery"]     # {'phenotype': 0.92, 'annotation_depth_only': 1.00, ...}
+bias["recovery"]     # {'phenotype': 0.92, 'annotation_only': 1.00, 'confound_risk': 'HIGH', ...}
 ```
 
 Group labels are predicted twice by cross-validated k-NN — from the phenotype
 distance, and from **how much was written down alone** (`n_terms`, `n_propagated`).
-When the second is as good as the first, the map is bookkeeping. Specificity measures
-are deliberately excluded from that second model: they depend on *which* terms a
-patient has, so including them would report real biology as bias.
+Specificity measures are deliberately excluded from that second model: they depend on
+*which* terms a patient has, so including them would report real biology as bias.
+
+The result is an **annotation-confound risk** (LOW / MODERATE / HIGH), not a verdict.
+That annotation counts predict the group does *not* establish that the separation is
+caused by them: a group that genuinely differs in phenotype severity is usually also
+annotated more thoroughly, and the chain runs group → severity → annotation depth.
+HIGH means the analysis must address the confound — by matching, stratification or a
+depth-controlled comparison — not that the finding is an artefact.
 
 ## 2 · Outliers — who sits away from their own group
 
@@ -259,6 +313,7 @@ modularity), so large groups are not rewarded merely for being large.
 | `phenotopo.hyperbolic` | `poincare_terms`, `einstein_midpoint`, `place_patients`, `radial_specificity`, `plot_disk` |
 | `phenotopo.mapper` | `mapper_graph`, `node_values`, `plot_mapper` |
 | `phenotopo.data` | `synthetic_cohort`, `synthetic_hpo_cohort`, `synthetic_hierarchy`, `synthetic_term_lists` |
+| `phenotopo.cli` | `phenotopo demo`, `phenotopo report`, `phenotopo ontology install/path` |
 
 ## Scope
 
@@ -278,8 +333,11 @@ See [`CITATION.cff`](CITATION.cff).
 pytest -q
 ```
 
-Runs on synthetic data only. **No patient data belongs in this repository** —
-`.gitignore` blocks ontology dumps, cohort files and analysis output.
+Runs on synthetic data only, by design: **no patient data belongs in this
+repository**, and `.gitignore` blocks ontology dumps, cohort files and analysis
+output. The figures in this README come from synthetic cohorts with designed
+structure, which makes them checkable but not evidence about real cohorts; a
+case study on public, published cases (Phenopacket Store) is the next release.
 
 ## References
 

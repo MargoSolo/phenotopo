@@ -2,6 +2,37 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is [SemVer](https://semver.org/).
 
+## [0.5.0] — 2026-09-05
+
+### Changed
+- **`Cohort.distance()` now defaults to SimGIC**, the IC-weighted ontology-aware
+  measure, with cosine kept as a sensitivity analysis; `Cohort.distances()` returns
+  both, ready for the robustness protocol. (Behaviour change: an explicit
+  `distance("cosine")` reproduces the old default.)
+- QC flags are relative and descriptive — `LOW_ANNOTATION_DEPTH`,
+  `LOW_SPECIFICITY_RELATIVE_TO_COHORT`, `HIGH_REDUNDANCY`, resolving to
+  `review recommended` — replacing the absolute `under-phenotyped` / `non-specific`.
+  A short, well-chosen phenotype list is not a poor one. Summary keys renamed
+  accordingly (`pct_low_annotation_depth`, `pct_low_specificity`,
+  `pct_review_recommended`).
+- `annotation_bias` reports `confound_risk` (LOW / MODERATE / HIGH) with an explicit
+  note that annotation counts predicting a group does **not** establish that the
+  separation is caused by them, replacing the causal verdict string.
+
+### Added
+- `distance(..., negatives="use")`: excluded phenotypes (propagated downwards, since
+  excluding a parent excludes its children) enter the similarity, so a shared
+  ruled-out phenotype counts. Refuses to run where absence was never recorded;
+  `onset=` is declared and raises rather than silently ignoring.
+- `Ontology.descendants`, `Cohort.propagated_excluded`, `Cohort.has_negatives`,
+  `Cohort.excluded_terms`, `Cohort.distances`.
+- `explain_groups` reports `excluded_a` / `excluded_b` — the fraction in whom a
+  phenotype was looked for and ruled out — alongside the test, never inside it.
+- Command line (`phenotopo`): `demo` (synthetic cohort → report in a browser),
+  `report` (Phenopackets or a CSV/XLSX table → the same HTML, no Python needed),
+  `ontology install` / `path` (explicit local ontology cache; the only place the
+  package touches the network).
+
 ## [0.4.0] — 2026-09-05
 
 ### Added

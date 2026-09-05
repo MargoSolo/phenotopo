@@ -82,3 +82,17 @@ def test_plot_and_input_validation():
         explain_groups(c, labels, "nonexistent-group")
     with pytest.raises(ValueError):
         explain_groups(c, labels[:10], "A")
+
+
+def test_excluded_phenotypes_are_reported_but_never_tested():
+    onto = Ontology([("Seizure", "Nervous"), ("Short stature", "Skeletal"),
+                     ("Nervous", "root"), ("Skeletal", "root")],
+                    {t: t for t in ["Seizure", "Nervous", "Short stature", "Skeletal", "root"]})
+    present = [{"Seizure"}] * 60 + [{"Short stature"}] * 60
+    excluded = [{"Short stature"}] * 60 + [set()] * 60
+    labels = np.array(["A"] * 60 + ["B"] * 60)
+    c = Cohort(ids=[f"P{i}" for i in range(120)], present=present, excluded=excluded, ontology=onto)
+    res = explain_groups(c, labels, "A", "B", n_perm=200, min_effect=0.2)
+    row = res["table"].set_index("term").loc["Short stature"]
+    assert row["prevalence_a"] == 0 and row["prevalence_b"] == 1      # presence drives the test
+    assert row["excluded_a"] == 1 and row["excluded_b"] == 0          # absence reported separately

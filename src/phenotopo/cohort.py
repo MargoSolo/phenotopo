@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import csr_matrix, lil_matrix
+from scipy.sparse import csr_matrix, hstack, lil_matrix
 
 
 class Ontology:
@@ -43,6 +43,7 @@ class Ontology:
             self.children[parent].add(child)
         self.names = dict(names or {})
         self._ancestors: dict[str, frozenset] = {}
+        self._descendants: dict[str, frozenset] = {}
         self._depth: dict[str, int] = {}
 
     @classmethod
@@ -87,6 +88,23 @@ class Ontology:
                         stack.append(p)
             self._ancestors[term] = frozenset(seen)
         return frozenset({term}) | self._ancestors[term] if include_self else self._ancestors[term]
+
+    def descendants(self, term: str, include_self: bool = True) -> frozenset:
+        """All descendants of ``term``.
+
+        Absence propagates the other way from presence: if *Seizure* was looked for
+        and excluded, every kind of seizure is excluded too.
+        """
+        if term not in self._descendants:
+            seen, stack = set(), [term]
+            while stack:
+                t = stack.pop()
+                for c in self.children.get(t, ()):
+                    if c not in seen:
+                        seen.add(c)
+                        stack.append(c)
+            self._descendants[term] = frozenset(seen)
+        return frozenset({term}) | self._descendants[term] if include_self else self._descendants[term]
 
     def depth(self, term: str) -> int:
         """Shortest number of ``is_a`` steps from ``term`` up to a root (root = 0)."""
@@ -155,6 +173,21 @@ class Cohort:
                                        for ts in self.present]
         return self._cache["prop"]
 
+    def propagated_excluded(self) -> list:
+        """Explicitly excluded terms plus all their descendants (absence propagates down)."""
+        if "prop_excl" not in self._cache:
+            if self.ontology is None:
+                self._cache["prop_excl"] = [set(t) for t in self.excluded]
+            else:
+                desc = self.ontology.descendants
+                self._cache["prop_excl"] = [set().union(*[desc(t) for t in ts]) if ts else set()
+                                            for ts in self.excluded]
+        return self._cache["prop_excl"]
+
+    def has_negatives(self) -> bool:
+        """True if any patient has an explicitly excluded phenotype recorded."""
+        return any(self.excluded)
+
     def terms(self) -> list:
         """Sorted vocabulary of propagated terms present anywhere in the cohort."""
         if "terms" not in self._cache:
@@ -177,46 +210,102 @@ class Cohort:
             self._cache["ic"] = ic.where(count < n, 0.0)
         return self._cache["ic"]
 
-    def feature_matrix(self, weight: str = "ic") -> csr_matrix:
-        """Sparse patients x terms matrix; ``weight`` is ``"ic"`` or ``"binary"``."""
-        key = f"X_{weight}"
+    def feature_matrix(self, weight: str = "ic", polarity: str = "present") -> csr_matrix:
+        """Sparse patients x terms matrix.
+
+        ``weight`` is ``"ic"`` or ``"binary"``; ``polarity`` is ``"present"`` (the
+        propagated phenotypes) or ``"excluded"`` (phenotypes recorded as looked for
+        and absent, propagated downwards).
+        """
+        key = f"X_{weight}_{polarity}"
         if key not in self._cache:
-            terms, prop = self.terms(), self.propagated()
+            sets = self.propagated() if polarity == "present" else self.propagated_excluded()
+            terms = self.terms() if polarity == "present" else self.excluded_terms()
             idx = {t: i for i, t in enumerate(terms)}
             ic = self.information_content()
             m = lil_matrix((len(self), len(terms)), dtype=np.float32)
-            for i, s in enumerate(prop):
+            for i, s in enumerate(sets):
                 for t in s:
-                    m[i, idx[t]] = float(ic[t]) if weight == "ic" else 1.0
+                    if t in idx:
+                        m[i, idx[t]] = float(ic.get(t, 1.0)) if weight == "ic" else 1.0
             self._cache[key] = m.tocsr()
         return self._cache[key]
 
-    def distance(self, metric: str = "cosine") -> np.ndarray:
-        """Square distance matrix: ``"cosine"`` on IC vectors, or ``"simgic"``.
+    def excluded_terms(self) -> list:
+        """Vocabulary of propagated excluded terms."""
+        if "excl_terms" not in self._cache:
+            sets = self.propagated_excluded()
+            self._cache["excl_terms"] = sorted(set().union(*sets) if sets else set())
+        return self._cache["excl_terms"]
 
-        SimGIC is the IC-weighted Jaccard of the propagated term sets (Pesquita
-        et al. 2008); the two disagree in useful ways, which is exactly what the
-        robustness protocol exploits.
+    def distance(self, metric: str = "simgic", negatives: str = "ignore",
+                 onset: str = "ignore") -> np.ndarray:
+        """Square distance matrix between patients.
+
+        Parameters
+        ----------
+        metric
+            ``"simgic"`` (default) - the IC-weighted Jaccard of the propagated term
+            sets (Pesquita et al. 2008). It is the ontology-aware measure the HPO
+            literature uses, and it is the recommended default here.
+            ``"cosine"`` - cosine distance between IC-weighted propagated vectors;
+            a good sensitivity analysis rather than a primary choice.
+        negatives
+            ``"ignore"`` (default) uses only recorded phenotypes. ``"use"`` also
+            uses **excluded** phenotypes: two patients in whom the same phenotype was
+            looked for and ruled out are more similar for it, while presence in one
+            and exclusion in the other counts only against them. Requires excluded
+            phenotypes in the data (Phenopackets carry them; a plain term list does
+            not) - the distinction *not recorded* vs *looked for and absent* is only
+            available when it was recorded.
+        onset
+            Reserved; only ``"ignore"`` is implemented. Onset is read and reported by
+            :func:`phenotopo.qc.phenotype_qc` but does not yet enter any similarity.
         """
-        key = f"D_{metric}"
+        if onset != "ignore":
+            raise ValueError("onset-aware similarity is not implemented yet (onset='ignore')")
+        if negatives not in ("ignore", "use"):
+            raise ValueError("negatives must be 'ignore' or 'use'")
+        if negatives == "use" and not self.has_negatives():
+            raise ValueError("no excluded phenotypes recorded in this cohort; use negatives='ignore'")
+        key = f"D_{metric}_{negatives}"
         if key in self._cache:
             return self._cache[key]
+        ic = self.information_content()
+
         if metric == "cosine":
-            w = self.feature_matrix("ic")
+            blocks = [self.feature_matrix("ic", "present")]
+            if negatives == "use":
+                blocks.append(self.feature_matrix("ic", "excluded"))
+            w = hstack(blocks).tocsr() if len(blocks) > 1 else blocks[0]
             norm = np.sqrt(np.asarray(w.multiply(w).sum(1)).ravel()) + 1e-12
             d = 1.0 - (w @ w.T).toarray() / np.outer(norm, norm)
         elif metric == "simgic":
-            b, w = self.feature_matrix("binary"), self.feature_matrix("ic")
-            shared = (w @ b.T).toarray().astype(float)
-            total = np.asarray(b @ self.information_content().to_numpy()).ravel()
+            shared, total = self._simgic_parts("present", ic)
+            if negatives == "use":
+                s2, t2 = self._simgic_parts("excluded", ic)
+                shared, total = shared + s2, total + t2
             union = total[:, None] + total[None, :] - shared
-            d = 1.0 - np.where(union > 0, shared / union, 0.0)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                d = 1.0 - np.where(union > 0, shared / np.where(union > 0, union, 1.0), 0.0)
         else:
-            raise ValueError("metric must be 'cosine' or 'simgic'")
+            raise ValueError("metric must be 'simgic' or 'cosine'")
         np.fill_diagonal(d, 0.0)
         d = np.clip((d + d.T) / 2.0, 0.0, None)
         self._cache[key] = d
         return d
+
+    def _simgic_parts(self, polarity: str, ic):
+        b = self.feature_matrix("binary", polarity)
+        w = self.feature_matrix("ic", polarity)
+        shared = (w @ b.T).toarray().astype(float)
+        terms = self.terms() if polarity == "present" else self.excluded_terms()
+        total = np.asarray(b @ np.array([float(ic.get(t, 1.0)) for t in terms])).ravel()
+        return shared, total
+
+    def distances(self, metrics=("simgic", "cosine"), **kwargs) -> dict:
+        """``{name: matrix}`` for several metrics - ready for the robustness protocol."""
+        return {m: self.distance(m, **kwargs) for m in metrics}
 
     def labels(self, column: str) -> np.ndarray:
         """Group labels from a metadata column, for connectivity / QC / comparison."""

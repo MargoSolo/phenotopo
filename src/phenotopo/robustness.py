@@ -122,8 +122,14 @@ def plot_forest(result: dict, short_names: dict | None = None, ax=None, colours=
     names = list(dict.fromkeys(table.distance)); ks = sorted(table.k.unique())
     palette = colours or dict(zip(names, ["#1f5fa8", "#d9731a", "#2e8b57", "#8e44ad"]))
     sn = short_names or {}
-    label_of = lambda pair: pair if not sn else (lambda a, b: f"{sn.get(a, a)} – {sn.get(b, b)}" if b else f"{sn.get(a, a)} (self)")(
-        *((pair.split(" – ") + [None])[:2] if " – " in pair else (pair.replace(" (self)", ""), None)))
+
+    def label_of(pair: str) -> str:
+        if pair.endswith(" (self)"):
+            g = pair[: -len(" (self)")]
+            return f"{sn.get(g, g)} (self)"
+        a, b = pair.split(" – ", 1)
+        return f"{sn.get(a, a)} – {sn.get(b, b)}"
+
     off_rows = summary[~summary["self"]].index.tolist(); self_rows = summary[summary["self"]].index.tolist()
     order = off_rows + self_rows
     th = result["thresholds"]

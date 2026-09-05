@@ -2,6 +2,12 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is [SemVer](https://semver.org/).
 
+## [0.3.1] — 2026-09-03
+
+### Fixed
+- Robustness tests assumed group sizes that the synthetic cohort does not have; simplified
+  pair-label formatting in `plot_forest`.
+
 ## [0.3.0] — 2026-09-03
 
 ### Added

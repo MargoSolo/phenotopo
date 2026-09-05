@@ -29,7 +29,7 @@ from . import data, hyperbolic, mapper, robustness, stats
 from .robustness import connectivity_robustness, plot_forest
 from .stats import benjamini_hochberg, bootstrap_ratio, permutation_test
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __all__ = [
     "knn_graph", "group_connectivity", "group_centroids",
     "plot_connectivity", "plot_connectivity_heatmap", "plot_density", "plot_small_multiples", "default_palette",

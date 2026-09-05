@@ -5,7 +5,7 @@
 [![tests](https://github.com/MargoSolo/phenotopo/actions/workflows/tests.yml/badge.svg)](https://github.com/MargoSolo/phenotopo/actions/workflows/tests.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-0.3.0-informational.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-0.3.1-informational.svg)](CHANGELOG.md)
 
 A cohort of rare-disease patients described by HPO terms is, more often than not,
 a **continuum with local structure** — not a set of well-separated islands. The

@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use phenotopo, please cite it as below."
 title: "phenotopo: continuum-honest maps of phenotype cohorts"
 type: software
-version: 0.3.0
+version: 0.3.1
 date-released: "2026-09-03"
 license: MIT
 repository-code: "https://github.com/MargoSolo/phenotopo"

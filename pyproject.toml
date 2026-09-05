@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "phenotopo"
-version = "0.3.1"
-description = "Continuum-honest maps of phenotype cohorts: group-connectivity graphs, density overlays, small multiples, hyperbolic and topological views."
+version = "0.4.0"
+description = "Phenotype QC, outlier detection and robust cohort structure for HPO / Phenopacket rare-disease cohorts."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 authors = [{ name = "Margarita Soloshenko", email = "margosoloshenko@mail.ru" }]
-keywords = ["phenotype", "HPO", "rare disease", "visualization", "PAGA", "hyperbolic embedding", "topological data analysis"]
+keywords = ["phenotype", "HPO", "Phenopacket", "rare disease", "quality control", "outlier detection", "genotype-phenotype", "visualization", "PAGA"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",

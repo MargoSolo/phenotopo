@@ -24,7 +24,12 @@ from phenotopo import (
     plot_density,
     plot_small_multiples,
 )
-from phenotopo.data import synthetic_cohort, synthetic_hierarchy, synthetic_term_lists
+from phenotopo.data import (
+    synthetic_cohort,
+    synthetic_hierarchy,
+    synthetic_hpo_cohort,
+    synthetic_term_lists,
+)
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
 os.makedirs(OUT, exist_ok=True)
@@ -85,3 +90,35 @@ try:
     save(ax, "mapper.png")
 except ImportError as e:
     print("skipping mapper figure:", e)
+
+
+# 6. Phenotyping QC and an ontology-aware group comparison, on an annotated cohort
+#    with designed faults (a thinly phenotyped site, discordant cases, redundant terms).
+from phenotopo import (
+    annotation_bias,
+    explain_groups,
+    patient_outliers,
+    phenotype_qc,
+    plot_explain,
+    plot_qc,
+)
+
+cohort = synthetic_hpo_cohort(n=600, seed=0)
+qc = phenotype_qc(cohort)
+save(plot_qc(qc, cohort.labels("site")), "qc.png")
+print("QC:", {k: round(v, 1) if isinstance(v, float) else v for k, v in qc["summary"].items()})
+
+d = cohort.distance("cosine")
+bias = annotation_bias(qc, cohort.labels("site"), distance=d)
+print("annotation bias:", bias["recovery"]["verdict"],
+      f'(phenotype {bias["recovery"]["phenotype"]:.0%}, '
+      f'depth alone {bias["recovery"]["annotation_depth_only"]:.0%})')
+
+out = patient_outliers(d, cohort.labels("diagnosis"), ids=cohort.ids, k=15)
+print("discordant patients:", int((out["flag"].str.contains("discordant")).sum()))
+
+comparison = explain_groups(cohort, cohort.labels("diagnosis"), "GENE_A", "GENE_B",
+                            n_perm=1000, min_effect=0.15)
+ax = plot_explain(comparison)
+save(ax, "explain.png")
+print("terms reported:", len(comparison["top"]), "of", comparison["n_tested"], "tested")

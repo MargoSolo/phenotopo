@@ -82,3 +82,61 @@ def synthetic_term_lists(leaves: dict, labels, seed: int = 0, per_patient=(2, 5)
             terms = [branch_of[lab]]
         out.append(terms)
     return out
+
+
+def synthetic_hpo_cohort(n: int = 400, seed: int = 0, thin_site: bool = True):
+    """A small annotated cohort with *designed* faults, for QC and comparison demos.
+
+    Two diagnoses drawn from different branches of a toy ontology, plus three
+    things that are planted on purpose so a quality report has something true to
+    find:
+
+    * patients from ``Site B`` are phenotyped thinly (one or two terms against four
+      to seven elsewhere) - the annotation-depth confound;
+    * a handful of patients carry the *other* diagnosis's phenotype - discordant
+      cases;
+    * some patients carry both a term and its parent - redundant annotation.
+
+    Returns a :class:`~phenotopo.cohort.Cohort` with metadata columns
+    ``diagnosis``, ``site`` and ``solved``.
+    """
+    import pandas as pd
+
+    from .cohort import Cohort, Ontology
+
+    branches = {
+        "GENE_A": ["Status epilepticus", "Focal seizure", "Intellectual disability",
+                   "Global developmental delay", "Hypotonia", "Ataxia", "Microcephaly"],
+        "GENE_B": ["Short stature", "Kyphosis", "Joint hypermobility", "Arachnodactyly",
+                   "Osteopenia", "Pes planus", "Facial dysmorphism"],
+    }
+    parents = {"Seizure": "Nervous system", "Status epilepticus": "Seizure",
+               "Focal seizure": "Seizure", "Intellectual disability": "Nervous system",
+               "Global developmental delay": "Nervous system", "Hypotonia": "Nervous system",
+               "Ataxia": "Nervous system", "Microcephaly": "Head",
+               "Short stature": "Skeletal system", "Scoliosis": "Skeletal system",
+               "Kyphosis": "Scoliosis", "Joint hypermobility": "Skeletal system",
+               "Arachnodactyly": "Skeletal system", "Osteopenia": "Skeletal system",
+               "Pes planus": "Skeletal system", "Facial dysmorphism": "Head",
+               "Nervous system": "root", "Skeletal system": "root", "Head": "root"}
+    onto = Ontology(list(parents.items()), {t: t for t in list(parents) + ["root"]})
+
+    rng = np.random.RandomState(seed)
+    ids, present, meta = [], [], []
+    for i in range(n):
+        dx = "GENE_A" if i < n // 2 else "GENE_B"
+        site = "B" if thin_site and rng.rand() < 0.25 else "A"
+        pool = branches[dx]
+        if rng.rand() < 0.04:                                   # discordant case
+            pool = branches["GENE_B" if dx == "GENE_A" else "GENE_A"]
+        if site == "B":                                          # thinly phenotyped site
+            terms = set(rng.choice(pool, size=rng.randint(1, 3), replace=False))
+        else:
+            terms = set(rng.choice(pool, size=rng.randint(4, 8), replace=False))
+        for child, parent in (("Status epilepticus", "Seizure"), ("Kyphosis", "Scoliosis")):
+            if child in terms and rng.rand() < 0.25:
+                terms.add(parent)                                 # redundant ancestor
+        ids.append(f"P{i:03d}")
+        present.append(terms)
+        meta.append({"diagnosis": dx, "site": site, "solved": bool(rng.rand() < 0.55)})
+    return Cohort(ids=ids, present=present, metadata=pd.DataFrame(meta), ontology=onto)

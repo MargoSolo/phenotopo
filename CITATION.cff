@@ -1,9 +1,9 @@
 cff-version: 1.2.0
 message: "If you use phenotopo, please cite it as below."
-title: "phenotopo: continuum-honest maps of phenotype cohorts"
+title: "phenotopo: phenotype QC, outliers and robust cohort structure for HPO cohorts"
 type: software
-version: 0.3.1
-date-released: "2026-09-03"
+version: 0.4.0
+date-released: "2026-09-05"
 license: MIT
 repository-code: "https://github.com/MargoSolo/phenotopo"
 authors:
@@ -12,7 +12,10 @@ authors:
     email: margosoloshenko@mail.ru
 keywords:
   - HPO
+  - Phenopacket
   - phenotype
   - rare disease
+  - quality control
+  - outlier detection
   - visualization
   - connectivity

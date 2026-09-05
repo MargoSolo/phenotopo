@@ -2,6 +2,35 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is [SemVer](https://semver.org/).
 
+## [0.4.0] — 2026-09-05
+
+### Added
+- `cohort.Cohort` / `cohort.Ontology` with readers `from_hpo_table` and
+  `from_phenopackets` (GA4GH Phenopackets v2: excluded phenotypes, onset, disease and
+  gene), ancestor propagation, information content, and cosine / SimGIC distances —
+  so an analysis no longer starts with the user building a distance matrix.
+- `qc.phenotype_qc`: per-patient annotation quality (terms, specificity, ontology
+  depth, redundant ancestors, recorded absence and onset) with flags, plus
+  `qc.plot_qc`.
+- `qc.annotation_bias`: Kruskal–Wallis on annotation depth across groups and a
+  cross-validated k-NN comparison of group recovery from phenotype versus from
+  annotation counts alone — how much of the apparent structure is bookkeeping.
+- `outliers.patient_outliers` (isolation and neighbourhood discordance reported
+  separately) and `outliers.explain_outlier` (terms that make a patient unusual, and
+  the terms its neighbourhood has that it lacks).
+- `explain.explain_groups`: ontology-aware group comparison with a Westfall–Young
+  max-T permutation (FWER control that respects parent–child dependence), Newcombe
+  confidence intervals, an effect-size threshold and pruning of redundant ancestor
+  terms; `explain.plot_explain`.
+- `report.cohort_report`: one self-contained local HTML file with QC, annotation
+  bias, outliers, robustness verdicts and group comparisons, figures embedded.
+- `data.synthetic_hpo_cohort`: an annotated cohort with designed faults (a thinly
+  phenotyped site, discordant cases, redundant ancestor terms).
+
+### Changed
+- `phenotype_qc` returns its patient table in cohort order, so it lines up with
+  labels and distance matrices; the flagged subset is the sorted view.
+
 ## [0.3.1] — 2026-09-03
 
 ### Fixed

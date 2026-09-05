@@ -17,6 +17,7 @@ import numpy as np
 
 from phenotopo import (
     group_connectivity,
+    permutation_test,
     plot_connectivity_heatmap,
     knn_graph,
     plot_connectivity,
@@ -43,7 +44,10 @@ conn = group_connectivity(knn_graph(distance=distance, k=15), labels)
 print("\nconnectivity (observed / expected k-NN edges):")
 print(conn["ratio"].round(2).to_string())
 save(plot_connectivity(conn, embedding=emb, labels=labels, min_ratio=0.5), "connectivity.png")
-save(plot_connectivity_heatmap(conn), "connectivity_heatmap.png")
+sig = permutation_test(knn_graph(distance=distance, k=15), labels, n_perm=500, random_state=0)
+print("\nsignificant pairs after BH correction:")
+print(sig["pairs"][sig["pairs"]["significant"]][["group_a", "group_b", "ratio", "null_lo95", "null_hi95", "q_BH", "direction"]].round(3).to_string(index=False))
+save(plot_connectivity_heatmap(conn, significance=sig), "connectivity_heatmap.png")
 
 # 2. density contours: overlap made visible
 save(plot_density(emb, labels, levels=(0.5, 0.85)), "density.png")

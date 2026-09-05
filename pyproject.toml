@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "phenotopo"
-version = "0.1.0"
+version = "0.2.0"
 description = "Continuum-honest maps of phenotype cohorts: group-connectivity graphs, density overlays, small multiples, hyperbolic and topological views."
 readme = "README.md"
 license = { file = "LICENSE" }

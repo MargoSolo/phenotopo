@@ -205,6 +205,8 @@ def plot_connectivity_heatmap(
     vmax: float | None = None,
     ax=None,
     fontsize: float = 8,
+    significance=None,
+    alpha: float = 0.05,
 ):
     """Group × group connectivity ratio as a heatmap.
 
@@ -212,6 +214,10 @@ def plot_connectivity_heatmap(
     shown, the diagonal (self-connectivity) tells how cohesive a group is, and
     values are printed in the cells. ``min_size`` drops small groups whose
     expected edge counts are tiny and whose ratios are therefore unstable.
+
+    Pass the result of :func:`phenotopo.stats.permutation_test` as
+    ``significance`` to mark cells with ``q_BH < alpha`` (a black outline and an
+    asterisk) - the ratios that survive multiple-testing correction.
     """
     import matplotlib.pyplot as plt
 
@@ -225,11 +231,16 @@ def plot_connectivity_heatmap(
     labs = [f"{g} (n={sizes[g]})" for g in order]
     ax.set_xticklabels(labs, rotation=60, ha="right", fontsize=fontsize)
     ax.set_yticklabels(labs, fontsize=fontsize)
+    qdf = significance["q_BH"] if significance is not None else None
     for i in range(len(order)):
         for j in range(len(order)):
             v = m[i, j]
-            ax.text(j, i, f"{v:.1f}", ha="center", va="center", fontsize=fontsize - 1.5,
+            sig = qdf is not None and float(qdf.loc[order[i], order[j]]) < alpha
+            ax.text(j, i, f"{v:.1f}" + ("*" if sig else ""), ha="center", va="center",
+                    fontsize=fontsize - 1.5, fontweight="bold" if sig else "normal",
                     color="white" if v > 0.6 * top else "black")
+            if sig:
+                ax.add_patch(plt.Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False, ec="black", lw=1.3))
     ax.spines[["top", "right", "left", "bottom"]].set_visible(False)
     cb = plt.colorbar(im, ax=ax, shrink=0.7); cb.set_label("observed / expected k-NN edges")
     return ax

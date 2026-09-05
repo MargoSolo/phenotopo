@@ -12,7 +12,9 @@ continuum case:
 * :func:`plot_small_multiples` - one panel per group instead of a 20-colour legend;
 * :mod:`phenotopo.hyperbolic` - a Poincaré-disk view in which phenotyping
   *specificity* becomes a radial axis;
-* :mod:`phenotopo.mapper` - a topological (Mapper) graph of the cohort's shape.
+* :mod:`phenotopo.mapper` - a topological (Mapper) graph of the cohort's shape;
+* :mod:`phenotopo.stats` - permutation significance and bootstrap intervals for the
+  connectivity ratios, so a "2.6" comes with a p-value and a CI.
 
 Inputs are deliberately minimal: a distance or feature matrix, group labels and
 (optionally) any 2-D embedding you already trust.
@@ -20,11 +22,13 @@ Inputs are deliberately minimal: a distance or feature matrix, group labels and
 
 from .graph import group_centroids, group_connectivity, knn_graph
 from .layout import default_palette, plot_connectivity, plot_connectivity_heatmap, plot_density, plot_small_multiples
-from . import data, hyperbolic, mapper
+from . import data, hyperbolic, mapper, stats
+from .stats import benjamini_hochberg, bootstrap_ratio, permutation_test
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "knn_graph", "group_connectivity", "group_centroids",
     "plot_connectivity", "plot_connectivity_heatmap", "plot_density", "plot_small_multiples", "default_palette",
-    "data", "hyperbolic", "mapper", "__version__",
+    "data", "hyperbolic", "mapper", "stats",
+    "permutation_test", "bootstrap_ratio", "benjamini_hochberg", "__version__",
 ]

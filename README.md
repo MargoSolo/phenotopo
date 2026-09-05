@@ -71,11 +71,22 @@ including the *separated* ones (`ratio < 1`), and the diagonal reports how
 cohesive each group is:
 
 ```python
-from phenotopo import plot_connectivity_heatmap
-plot_connectivity_heatmap(conn, min_size=30)
+from phenotopo import plot_connectivity_heatmap, permutation_test
+
+sig = permutation_test(knn_graph(distance=D, k=15), labels, n_perm=1000)
+plot_connectivity_heatmap(conn, min_size=30, significance=sig)   # * = q < 0.05
+sig["pairs"]                                                     # ratio, null interval, p, q, z per pair
 ```
 
 <p align="center"><img src="examples/figures/connectivity_heatmap.png" width="560"></p>
+
+A ratio is only a number until it comes with uncertainty. `permutation_test`
+shuffles the group labels over the *fixed* k-NN graph (group sizes preserved),
+recomputes every ratio each time, and reports for each pair the null mean and
+95 % interval, one- and two-sided p-values, a z-score and Benjamini–Hochberg
+q-values across all pairs. Cells marked `*` survive multiple-testing correction.
+`bootstrap_ratio` adds a percentile interval for the estimate itself from
+repeated patient subsamples.
 
 ### 2 · Density contours
 
@@ -160,6 +171,7 @@ behind modularity), so large groups are not rewarded merely for being large.
 | `phenotopo.layout` | `plot_connectivity`, `plot_connectivity_heatmap`, `plot_density`, `plot_small_multiples`, `default_palette` |
 | `phenotopo.hyperbolic` | `poincare_terms`, `einstein_midpoint`, `place_patients`, `radial_specificity`, `plot_disk` |
 | `phenotopo.mapper` | `mapper_graph`, `node_values`, `plot_mapper` |
+| `phenotopo.stats` | `permutation_test`, `bootstrap_ratio`, `benjamini_hochberg` |
 | `phenotopo.data` | `synthetic_cohort`, `synthetic_hierarchy`, `synthetic_term_lists` |
 
 ## Tests

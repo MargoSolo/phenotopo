@@ -2,6 +2,14 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is [SemVer](https://semver.org/).
 
+## [0.2.0] — 2026-09-03
+
+### Added
+- `stats.permutation_test`: label-permutation null for every connectivity ratio
+  (p-values, BH q-values, z-scores, 95 % null interval), `stats.bootstrap_ratio`
+  (subsampling percentile CI), significance overlay on the connectivity heatmap.
+- `plot_connectivity_heatmap`; optional adjustText label repulsion.
+
 ## [0.1.0] — 2026-09-03
 
 ### Added

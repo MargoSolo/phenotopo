@@ -19,12 +19,12 @@ Inputs are deliberately minimal: a distance or feature matrix, group labels and
 """
 
 from .graph import group_centroids, group_connectivity, knn_graph
-from .layout import default_palette, plot_connectivity, plot_density, plot_small_multiples
+from .layout import default_palette, plot_connectivity, plot_connectivity_heatmap, plot_density, plot_small_multiples
 from . import data, hyperbolic, mapper
 
 __version__ = "0.1.0"
 __all__ = [
     "knn_graph", "group_connectivity", "group_centroids",
-    "plot_connectivity", "plot_density", "plot_small_multiples", "default_palette",
+    "plot_connectivity", "plot_connectivity_heatmap", "plot_density", "plot_small_multiples", "default_palette",
     "data", "hyperbolic", "mapper", "__version__",
 ]

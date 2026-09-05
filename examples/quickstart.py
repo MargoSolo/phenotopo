@@ -17,6 +17,7 @@ import numpy as np
 
 from phenotopo import (
     group_connectivity,
+    plot_connectivity_heatmap,
     knn_graph,
     plot_connectivity,
     plot_density,
@@ -42,6 +43,7 @@ conn = group_connectivity(knn_graph(distance=distance, k=15), labels)
 print("\nconnectivity (observed / expected k-NN edges):")
 print(conn["ratio"].round(2).to_string())
 save(plot_connectivity(conn, embedding=emb, labels=labels, min_ratio=0.5), "connectivity.png")
+save(plot_connectivity_heatmap(conn), "connectivity_heatmap.png")
 
 # 2. density contours: overlap made visible
 save(plot_density(emb, labels, levels=(0.5, 0.85)), "density.png")

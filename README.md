@@ -32,6 +32,9 @@ pip install -e .                 # core: connectivity, density, small multiples
 pip install -e ".[hyperbolic]"   # + Poincaré disk (gensim)
 pip install -e ".[tda]"          # + Mapper graph (kmapper)
 pip install -e ".[all]"          # everything, incl. umap-learn
+
+If `adjustText` is installed, overlapping labels on the connectivity graph and the
+Poincaré disk are pushed apart automatically; without it the plots still work.
 ```
 
 ---
@@ -60,6 +63,19 @@ expects (`ratio ≥ 1`), with width ∝ log ratio. **Thick edge = the groups ble
 no edge = genuinely separate.** Here Neuro–Devel is thick, Bone is isolated, Skin
 hangs off Neuro — exactly as designed. This is the single most honest summary of
 "local coherence without discrete clusters".
+
+Once there are more than ~8 groups a node–link drawing stops being readable
+(labels collide, a dominant background group connects to nothing at `ratio ≥ 1`).
+For that case use the **heatmap** of the same matrix — every pair is shown,
+including the *separated* ones (`ratio < 1`), and the diagonal reports how
+cohesive each group is:
+
+```python
+from phenotopo import plot_connectivity_heatmap
+plot_connectivity_heatmap(conn, min_size=30)
+```
+
+<p align="center"><img src="examples/figures/connectivity_heatmap.png" width="560"></p>
 
 ### 2 · Density contours
 
@@ -141,7 +157,7 @@ behind modularity), so large groups are not rewarded merely for being large.
 | Module | Contents |
 |---|---|
 | `phenotopo.graph` | `knn_graph`, `group_connectivity`, `group_centroids` |
-| `phenotopo.layout` | `plot_connectivity`, `plot_density`, `plot_small_multiples`, `default_palette` |
+| `phenotopo.layout` | `plot_connectivity`, `plot_connectivity_heatmap`, `plot_density`, `plot_small_multiples`, `default_palette` |
 | `phenotopo.hyperbolic` | `poincare_terms`, `einstein_midpoint`, `place_patients`, `radial_specificity`, `plot_disk` |
 | `phenotopo.mapper` | `mapper_graph`, `node_values`, `plot_mapper` |
 | `phenotopo.data` | `synthetic_cohort`, `synthetic_hierarchy`, `synthetic_term_lists` |

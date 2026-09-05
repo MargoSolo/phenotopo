@@ -118,10 +118,15 @@ def plot_disk(
                        edgecolors="none", rasterized=True, label=f"{g} (n={int(m.sum())})")
         ax.legend(fontsize=7, loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=True, edgecolor="gray")
     if landmarks:
+        from .layout import _repel
+
+        texts = []
         for name, xy in landmarks.items():
             ax.scatter(xy[0], xy[1], marker="*", s=90, c="black", zorder=5, edgecolors="white", linewidths=0.5)
-            ax.annotate(name, xy, fontsize=7, fontweight="bold", xytext=(4, 4), textcoords="offset points",
-                        bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.8))
+            texts.append(ax.annotate(name, xy, fontsize=7, fontweight="bold", xytext=(4, 4),
+                                     textcoords="offset points", zorder=6,
+                                     bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.8)))
+        _repel(texts, ax, [xy[0] for xy in landmarks.values()], [xy[1] for xy in landmarks.values()])
     ax.set_xlim(-1.05, 1.05); ax.set_ylim(-1.05, 1.05); ax.set_aspect("equal")
     ax.axis("off")
     return ax

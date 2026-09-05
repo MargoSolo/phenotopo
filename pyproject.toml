@@ -31,8 +31,8 @@ dependencies = [
 [project.optional-dependencies]
 hyperbolic = ["gensim>=4.3"]
 tda = ["kmapper>=2.0"]
-all = ["gensim>=4.3", "kmapper>=2.0", "umap-learn>=0.5"]
-dev = ["pytest>=7.0", "gensim>=4.3", "kmapper>=2.0"]
+all = ["gensim>=4.3", "kmapper>=2.0", "umap-learn>=0.5", "adjustText>=1.0"]
+dev = ["pytest>=7.0", "gensim>=4.3", "kmapper>=2.0", "adjustText>=1.0"]
 
 [project.urls]
 Homepage = "https://github.com/MargoSolo/phenotopo"

@@ -1,5 +1,7 @@
 """Generate every figure shown in the README from a synthetic cohort.
 
+(The header image is generated separately by ``examples/social_preview.py``.)
+
     python examples/quickstart.py
 
 Nothing here needs data files. The synthetic cohort has a *known* structure

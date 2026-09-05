@@ -7,6 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/phenotopo.svg)](https://pypi.org/project/phenotopo/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22358033.svg)](https://doi.org/10.5281/zenodo.22358033)
+
+<p align="center"><img src="examples/figures/social_preview.png" width="860" alt="phenotopo: annotation-depth QC, discordant patients, and connectivity verdicts that survive six configurations"></p>
 [![version](https://img.shields.io/badge/version-0.5.1-informational.svg)](CHANGELOG.md)
 
 Two things go wrong when a rare-disease cohort is analysed by HPO terms.
@@ -328,6 +330,16 @@ reading Phenopackets so it fits between the two.
 
 Soloshenko M. *phenotopo: a QC and explainability toolkit for phenotype cohorts.*
 Zenodo. https://doi.org/10.5281/zenodo.22358033
+
+```bibtex
+@software{phenotopo,
+  author  = {Soloshenko, Margarita},
+  title   = {phenotopo: a QC and explainability toolkit for phenotype cohorts},
+  year    = {2026},
+  doi     = {10.5281/zenodo.22358033},
+  url     = {https://github.com/MargoSolo/phenotopo}
+}
+```
 
 That is the **concept DOI** — it always resolves to the latest version, which is what
 belongs in a paper. Each release also gets its own DOI (10.5281/zenodo.22358034 for 0.5.1) if you

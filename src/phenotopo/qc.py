@@ -27,18 +27,29 @@ def phenotype_qc(cohort, min_terms: int = 3, specificity_pct: float = 10.0) -> d
     cohort
         A :class:`phenotopo.cohort.Cohort`.
     min_terms
-        A patient with at most this many asserted terms is flagged
-        ``LOW_ANNOTATION_DEPTH``.
+        Absolute heuristic threshold: a patient with at most this many asserted
+        terms is flagged ``LOW_ANNOTATION_DEPTH``. It is a rule of thumb and is
+        meant to be set for the setting, not a property of the cohort.
     specificity_pct
-        A patient below this percentile of mean information content is flagged
-        ``LOW_SPECIFICITY_RELATIVE_TO_COHORT`` - the terms are there, but they are
-        vague relative to the rest of *this* cohort.
+        Cohort-relative threshold: a patient below this percentile of mean
+        information content is flagged ``LOW_SPECIFICITY_RELATIVE_TO_COHORT``, and
+        below this percentile of term count ``LOW_DEPTH_RELATIVE_TO_COHORT``.
 
-    Flags are deliberately **relative and descriptive**. Six well-chosen terms can
-    describe a skeletal dysplasia completely while fifteen vague ones describe a
-    neurodevelopmental case badly, so a flag never says a patient is
-    "under-phenotyped" in absolute terms - it says the annotation stands out against
-    this cohort and that ``review`` is recommended.
+    Flags come in **two layers, and they are not the same kind of claim**:
+
+    * **absolute completeness heuristics** - ``NO_PHENOTYPE_RECORDED``,
+      ``LOW_ANNOTATION_DEPTH`` (at most ``min_terms`` terms), ``HIGH_REDUNDANCY``
+      (a term recorded next to its own child). These are configurable rules of
+      thumb, not cohort statistics: three terms is few in most settings, but six
+      well-chosen terms can describe a skeletal dysplasia completely.
+    * **cohort-relative anomalies** - ``LOW_SPECIFICITY_RELATIVE_TO_COHORT`` and
+      ``LOW_DEPTH_RELATIVE_TO_COHORT``, both percentile-based. These say a patient
+      stands out *against this cohort*, which is silent when the whole cohort was
+      phenotyped thinly - which is why the absolute layer exists, and why the
+      summary carries ``cohort_level_warning``.
+
+    Neither layer declares a patient under-phenotyped. Both resolve to
+    ``review recommended``.
 
     Returns
     -------
@@ -53,8 +64,8 @@ def phenotype_qc(cohort, min_terms: int = 3, specificity_pct: float = 10.0) -> d
     age · ``mean_ic`` / ``total_ic`` specificity (information content) ·
     ``mean_depth`` mean ontology depth · ``n_redundant`` asserted terms that are
     ancestors of another asserted term (bookkeeping noise, not information) ·
-    ``specificity_pct`` percentile of ``mean_ic`` within the cohort · ``flags`` ·
-    ``review``.
+    ``specificity_pct`` / ``depth_pct`` percentiles within the cohort ·
+    ``flags_absolute`` · ``flags_relative`` · ``flags`` (both) · ``review``.
     """
     ic = cohort.information_content()
     onto = cohort.ontology
@@ -82,18 +93,26 @@ def phenotype_qc(cohort, min_terms: int = 3, specificity_pct: float = 10.0) -> d
     pat = pd.DataFrame(rows)
     pat["specificity_pct"] = pat["mean_ic"].rank(pct=True) * 100.0
 
-    flags = []
+    pat["depth_pct"] = pat["n_terms"].rank(pct=True) * 100.0
+    absolute, relative, flags = [], [], []
     for _, r in pat.iterrows():
-        f = []
+        a, rel = [], []
         if r["n_terms"] == 0:
-            f.append("NO_PHENOTYPE_RECORDED")
+            a.append("NO_PHENOTYPE_RECORDED")
         elif r["n_terms"] <= min_terms:
-            f.append("LOW_ANNOTATION_DEPTH")
-        if r["n_terms"] > 0 and r["specificity_pct"] < specificity_pct:
-            f.append("LOW_SPECIFICITY_RELATIVE_TO_COHORT")
+            a.append("LOW_ANNOTATION_DEPTH")
         if r["n_redundant"] > 0:
-            f.append("HIGH_REDUNDANCY")
-        flags.append("; ".join(f))
+            a.append("HIGH_REDUNDANCY")
+        if r["n_terms"] > 0:
+            if r["specificity_pct"] < specificity_pct:
+                rel.append("LOW_SPECIFICITY_RELATIVE_TO_COHORT")
+            if r["depth_pct"] < specificity_pct:
+                rel.append("LOW_DEPTH_RELATIVE_TO_COHORT")
+        absolute.append("; ".join(a))
+        relative.append("; ".join(rel))
+        flags.append("; ".join(a + rel))
+    pat["flags_absolute"] = absolute
+    pat["flags_relative"] = relative
     pat["flags"] = flags   # kept in cohort order, so it aligns with labels and distances
     pat["review"] = np.where(pat["flags"] != "", "review recommended", "")
 
@@ -109,7 +128,18 @@ def phenotype_qc(cohort, min_terms: int = 3, specificity_pct: float = 10.0) -> d
         "pct_with_excluded_phenotypes": 100.0 * (pat["n_excluded"] > 0).sum() / n,
         "pct_with_onset": 100.0 * (pat["n_onset"] > 0).sum() / n,
         "pct_review_recommended": 100.0 * (pat["flags"] != "").sum() / n,
+        "pct_flagged_absolute": 100.0 * (pat["flags_absolute"] != "").sum() / n,
+        "pct_flagged_relative": 100.0 * (pat["flags_relative"] != "").sum() / n,
     }
+    # A cohort-relative flag cannot fire when everybody is annotated equally thinly;
+    # say so explicitly rather than reporting a clean relative picture.
+    if summary["median_terms"] <= min_terms:
+        summary["cohort_level_warning"] = (
+            f"the median patient has {summary['median_terms']:.0f} terms, at or below the "
+            f"absolute threshold of {min_terms}: this cohort is thinly phenotyped as a whole, "
+            f"and cohort-relative flags cannot show it")
+    else:
+        summary["cohort_level_warning"] = ""
     flagged = pat[pat["flags"] != ""].sort_values(["n_terms", "mean_ic"]).reset_index(drop=True)
     return {"patients": pat, "summary": summary, "flagged": flagged,
             "thresholds": {"min_terms": min_terms, "specificity_pct": specificity_pct}}
@@ -117,7 +147,8 @@ def phenotype_qc(cohort, min_terms: int = 3, specificity_pct: float = 10.0) -> d
 
 def annotation_bias(qc, labels, distance: np.ndarray | None = None, k: int = 15,
                     n_splits: int = 5, random_state: int = 0,
-                    features=("n_terms", "n_propagated")) -> dict:
+                    features=("n_terms", "n_propagated"), n_baseline: int = 20,
+                    bands=(0.25, 0.5)) -> dict:
     """Is the difference between groups phenotype, or how thoroughly they were annotated?
 
     Two answers, both plain:
@@ -127,8 +158,12 @@ def annotation_bias(qc, labels, distance: np.ndarray | None = None, k: int = 15,
        the effect size (0.01 small, 0.06 moderate, 0.14 large).
     2. **Could the group signal be annotation depth?** If a ``distance`` matrix is
        given, group labels are predicted by cross-validated k-NN twice: from the
-       phenotype distance, and from ``features`` alone. The result is reported as
-       ``confound_risk`` (LOW / MODERATE / HIGH), **not** as a causal verdict:
+       phenotype distance, and from ``features`` alone. Both are scored by
+       **balanced accuracy**, which does not reward predicting the majority class,
+       against a **label-permutation baseline** rather than the majority rate. The
+       result is an annotation-predictability diagnostic reported as
+       ``confound_risk`` (LOW / MODERATE / HIGH, on the heuristic ``bands``),
+       **not** as a causal verdict:
        annotation counts predicting the group does not establish that the group
        separation is caused by them. A group that genuinely differs in phenotype
        severity is often also annotated more thoroughly, and the association runs
@@ -172,37 +207,58 @@ def annotation_bias(qc, labels, distance: np.ndarray | None = None, k: int = 15,
     out = {"by_group": by_group, "kruskal": tests}
 
     if distance is not None:
+        from sklearn.metrics import balanced_accuracy_score
         from sklearn.model_selection import StratifiedKFold, cross_val_score
         from sklearn.neighbors import KNeighborsClassifier
         from sklearn.pipeline import make_pipeline
         from sklearn.preprocessing import StandardScaler
 
-        keep = pd.Series(labels).map(pd.Series(labels).value_counts()) >= n_splits
-        keep = keep.to_numpy()
+        counts = pd.Series(labels).value_counts()
+        keep = pd.Series(labels).map(counts).to_numpy() >= n_splits
         y = labels[keep]
+        if len(np.unique(y)) < 2:
+            out["recovery"] = {"error": "fewer than two groups have enough members for "
+                                        f"{n_splits}-fold cross-validation"}
+            return out
+        # every training fold holds (n_splits - 1) / n_splits of the smallest class at
+        # least; k must fit inside the smallest training fold or k-NN raises
+        smallest_train = len(y) - int(np.ceil(len(y) / n_splits))
+        k_eff = max(1, min(int(k), smallest_train - 1))
         cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
         d = np.asarray(distance)[np.ix_(keep, keep)]
-        acc_phen = float(np.mean(cross_val_score(
-            KNeighborsClassifier(n_neighbors=k, metric="precomputed"), d, y, cv=cv)))
-        depth = pat.loc[keep, list(features)].to_numpy()
-        acc_depth = float(np.mean(cross_val_score(
-            make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=k)), depth, y, cv=cv)))
-        base = float(pd.Series(y).value_counts(normalize=True).max())
-        lift_phen, lift_depth = acc_phen - base, acc_depth - base
-        share = float(np.clip(lift_depth / lift_phen, 0, 1)) if lift_phen > 1e-9 else np.nan
-        risk = ("HIGH" if share == share and share > 0.5
-                else "MODERATE" if share == share and share > 0.25 else "LOW")
+        annot = pat.loc[keep, list(features)].to_numpy()
+
+        def score(estimator, X, target):
+            return float(np.mean(cross_val_score(estimator, X, target, cv=cv,
+                                                 scoring="balanced_accuracy")))
+
+        phen_model = KNeighborsClassifier(n_neighbors=k_eff, metric="precomputed")
+        annot_model = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=k_eff))
+        score_phen, score_annot = score(phen_model, d, y), score(annot_model, annot, y)
+
+        # baseline by label permutation, not by the majority class: balanced accuracy of a
+        # useless classifier is 1/n_classes in expectation, but only in expectation
+        rng = np.random.RandomState(random_state)
+        null = [score(annot_model, annot, rng.permutation(y)) for _ in range(n_baseline)]
+        base = float(np.mean(null))
+        lift_phen, lift_annot = score_phen - base, score_annot - base
+        share = float(np.clip(lift_annot / lift_phen, 0, 1)) if lift_phen > 1e-9 else np.nan
+        risk = ("HIGH" if share == share and share > bands[1]
+                else "MODERATE" if share == share and share > bands[0] else "LOW")
         out["recovery"] = {
-            "phenotype": acc_phen, "annotation_only": acc_depth, "majority_baseline": base,
-            "annotation_share_of_lift": share, "k": k, "n_used": int(keep.sum()),
-            "features": list(features),
+            "phenotype": score_phen, "annotation_only": score_annot,
+            "permutation_baseline": base, "annotation_share_of_lift": share,
+            "k": k_eff, "k_requested": int(k), "n_used": int(keep.sum()),
+            "features": list(features), "metric": "balanced accuracy (5-fold CV)",
             "confound_risk": risk,
             "note": ("Annotation counts predict the group about as well as phenotype does. "
-                     "This flags a risk, it does not establish that the biological signal is "
-                     "artifactual: a group that genuinely differs in phenotype severity may also "
-                     "be annotated more thoroughly." if risk != "LOW" else
-                     "Annotation counts add little beyond the baseline, so the group signal is "
-                     "unlikely to be driven by how much was written down."),
+                     "This is a predictability diagnostic, not a causal finding: it does not "
+                     "establish that the biological signal is artifactual, because a group that "
+                     "genuinely differs in phenotype severity is usually also annotated more "
+                     "thoroughly. The bands (0.25, 0.50) are heuristic and configurable."
+                     if risk != "LOW" else
+                     "Annotation counts add little beyond a permutation baseline, so the group "
+                     "signal is unlikely to be driven by how much was written down."),
         }
     return out
 

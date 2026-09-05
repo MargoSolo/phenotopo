@@ -6,13 +6,21 @@ p-value answers it badly, for two reasons that are specific to ontologies:
 
 * **The terms are not independent.** A patient annotated *Status epilepticus* is,
   after propagation, also annotated *Seizure*, *Abnormal nervous system
-  physiology* and so on up to the root. Benjamini-Hochberg assumes far more
-  independence than that, and a whole ancestor chain lights up for one finding.
-  :func:`explain_groups` therefore offers a **Westfall-Young max-T permutation**
-  procedure: the group labels are shuffled and the *largest* prevalence
-  difference over all terms is recorded each time, so the null already contains
-  the ontology's correlation structure and the adjusted p-values control the
-  family-wise error rate without assuming independence.
+  physiology* and so on up to the root, so one finding lights up a whole ancestor
+  chain. Benjamini-Hochberg is not invalid here - it controls the FDR under
+  positive regression dependency, which propagated ontology terms plausibly
+  satisfy - but it controls a different error rate, and the dependence is strong
+  enough to be worth using directly. :func:`explain_groups` therefore offers a
+  **single-step max-statistic label permutation**: the group labels are shuffled
+  and the *largest* statistic over all terms is recorded each time, so the null
+  distribution is built from the ontology's actual correlation structure rather
+  than from an assumption about it. The statistic is studentized by default,
+  which matters because a raw prevalence difference has very different variance
+  at 5 % than at 50 % prevalence and the maximum would otherwise be dominated by
+  mid-prevalence terms.
+
+  Empirical error control is measured, not asserted: see
+  ``benchmarks/permutation_calibration.py`` for the FWER and power simulation.
 * **Significance is not the answer.** With a few thousand patients, a 2-point
   prevalence difference is significant and clinically empty. Terms are reported
   only above an explicit **effect-size threshold** (percentage points), and the
@@ -53,6 +61,7 @@ def explain_groups(
     min_effect: float = 0.10,
     alpha: float = 0.05,
     n_perm: int = 1000,
+    statistic: str = "studentized",
     prune_redundant: bool = True,
     redundancy_tol: float = 0.02,
     random_state: int = 0,
@@ -68,8 +77,14 @@ def explain_groups(
         Minimum absolute prevalence difference (0.10 = 10 percentage points) for a
         term to be reported. Significance alone never qualifies a term.
     n_perm
-        Westfall-Young permutations. ``0`` falls back to Fisher + Benjamini-Hochberg,
-        which is faster but assumes an independence the ontology does not have.
+        Label permutations for the max-statistic adjustment. ``0`` falls back to
+        Fisher + Benjamini-Hochberg, which is faster and controls the FDR rather
+        than the family-wise error rate.
+    statistic
+        ``"studentized"`` (default) compares groups on the two-proportion z
+        statistic, so terms of every prevalence contribute on the same scale;
+        ``"difference"`` uses the raw prevalence difference, which is easier to
+        read but lets mid-prevalence terms dominate the maximum.
     prune_redundant
         Drop a term when a more specific reported term has essentially the same
         prevalence in both groups (within ``redundancy_tol``) - i.e. it is the same
@@ -127,15 +142,27 @@ def explain_groups(
     p = np.array([fisher_exact([[int(a), n_a - int(a)], [int(b), n_b - int(b)]])[1]
                   for a, b in zip(count_a, count_b)])
     if n_perm and n_perm > 0:
+        if statistic not in ("studentized", "difference"):
+            raise ValueError("statistic must be 'studentized' or 'difference'")
+
+        def stat(counts_a, counts_b):
+            pa, pb = counts_a / n_a, counts_b / n_b
+            if statistic == "difference":
+                return pa - pb
+            pooled = (counts_a + counts_b) / (n_a + n_b)
+            se = np.sqrt(pooled * (1.0 - pooled) * (1.0 / n_a + 1.0 / n_b))
+            return np.divide(pa - pb, se, out=np.zeros_like(pa), where=se > 0)
+
+        observed_stat = stat(count_a, count_b)
         rng = np.random.RandomState(random_state)
         g = in_a.copy()
         max_null = np.empty(n_perm)
         for s in range(n_perm):
             rng.shuffle(g)
-            e = (g @ X) / n_a - ((1.0 - g) @ X) / n_b
-            max_null[s] = np.abs(e).max()
-        p_adj = np.array([((max_null >= abs(e)).sum() + 1) / (n_perm + 1) for e in effect])
-        method = f"Westfall-Young max-T permutation (n={n_perm}), FWER-controlled"
+            max_null[s] = np.abs(stat(g @ X, (1.0 - g) @ X)).max()
+        p_adj = np.array([((max_null >= abs(t)).sum() + 1) / (n_perm + 1) for t in observed_stat])
+        method = (f"single-step max-statistic label permutation, {statistic} "
+                  f"(n={n_perm}); adjusted p-values target the family-wise error rate")
     else:
         from .stats import benjamini_hochberg
         p_adj = benjamini_hochberg(p)

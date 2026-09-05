@@ -99,3 +99,16 @@ def test_synthetic_cohort_has_the_designed_faults():
 def test_length_mismatch_is_refused():
     with pytest.raises(ValueError):
         Cohort(ids=["a", "b"], present=[{"c1"}])
+
+
+def test_phenopackets_are_found_in_nested_directories(tmp_path):
+    """Real corpora nest one folder per gene; a flat listdir would miss every packet."""
+    import json as _json
+    for gene in ("SCN2A", "KMT2D"):
+        d = tmp_path / gene
+        d.mkdir()
+        (d / f"{gene}_1.json").write_text(_json.dumps({
+            "subject": {"id": f"{gene}-1"},
+            "phenotypicFeatures": [{"type": {"id": "HP:0001250"}}]}))
+    c = from_phenopackets(str(tmp_path))
+    assert sorted(c.ids) == ["KMT2D-1", "SCN2A-1"]

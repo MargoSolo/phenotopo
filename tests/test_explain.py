@@ -34,7 +34,7 @@ def test_planted_difference_is_recovered_with_effect_size_and_ci():
     assert top.loc["Status epilepticus", "effect_pp"] > 50
     lo, hi = top.loc["Status epilepticus", ["ci_lo_pp", "ci_hi_pp"]]
     assert lo < top.loc["Status epilepticus", "effect_pp"] < hi and lo > 0
-    assert res["method"].startswith("Westfall-Young")
+    assert res["method"].startswith("single-step max-statistic")
 
 
 def test_redundant_ancestors_are_pruned_in_favour_of_the_specific_term():
@@ -96,3 +96,34 @@ def test_excluded_phenotypes_are_reported_but_never_tested():
     row = res["table"].set_index("term").loc["Short stature"]
     assert row["prevalence_a"] == 0 and row["prevalence_b"] == 1      # presence drives the test
     assert row["excluded_a"] == 1 and row["excluded_b"] == 0          # absence reported separately
+
+
+def test_studentized_and_raw_statistics_both_run_and_agree_on_a_planted_effect():
+    c, labels = _planted()
+    stud = explain_groups(c, labels, "A", "B", n_perm=300, min_effect=0.2, statistic="studentized")
+    raw = explain_groups(c, labels, "A", "B", n_perm=300, min_effect=0.2, statistic="difference")
+    assert "studentized" in stud["method"] and "difference" in raw["method"]
+    assert "Status epilepticus" in set(stud["top"]["term"]) & set(raw["top"]["term"])
+    with pytest.raises(ValueError):
+        explain_groups(c, labels, "A", "B", n_perm=50, statistic="rank")
+
+
+def test_studentization_does_not_bury_a_rare_but_real_term():
+    """A 4 % vs 0 % term has a tiny raw difference; studentizing keeps it comparable."""
+    onto = Ontology([("Rare", "root"), ("Common", "root")], {t: t for t in ["Rare", "Common", "root"]})
+    rng = np.random.RandomState(0)
+    present, labels = [], []
+    for i in range(600):
+        group = "A" if i < 300 else "B"
+        terms = set()
+        if rng.rand() < (0.55 if group == "A" else 0.45):
+            terms.add("Common")
+        if group == "A" and rng.rand() < 0.10:
+            terms.add("Rare")
+        present.append(terms or {"Common"})
+        labels.append(group)
+    c = Cohort(ids=[f"P{i}" for i in range(600)], present=present, ontology=onto)
+    res = explain_groups(c, np.array(labels), "A", "B", n_perm=500, min_effect=0.05,
+                         min_prevalence=0.02, statistic="studentized")
+    row = res["table"].set_index("term").loc["Rare"]
+    assert row["p_adjusted"] < 0.05          # detected despite a small absolute difference

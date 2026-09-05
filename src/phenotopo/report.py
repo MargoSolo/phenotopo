@@ -110,6 +110,8 @@ def cohort_report(
     ]))
 
     parts.append("<h2>Phenotyping quality</h2>")
+    if s.get("cohort_level_warning"):
+        parts.append(f'<p class="note warn">{html.escape(s["cohort_level_warning"])}.</p>')
     parts.append(f'<p class="note">Review recommended for <b>{s["pct_review_recommended"]:.0f} %</b> of patients — '
                  f'{s["pct_low_annotation_depth"]:.0f} % with ≤ {qc["thresholds"]["min_terms"]} terms, '
                  f'{s["pct_low_specificity"]:.0f} % below the {qc["thresholds"]["specificity_pct"]:.0f}th percentile of '
@@ -131,11 +133,16 @@ def cohort_report(
             parts.append(f'<p class="note">{col}: Kruskal–Wallis H = {t["H"]:.1f}, p = {t["p"]:.2g}, '
                          f'ε² = {t["epsilon_sq"]:.3f} ({t["effect"]} effect).</p>')
         r = bias.get("recovery")
+        if r and "error" in r:
+            parts.append(f'<p class="note">Group recovery not computed: {html.escape(r["error"])}.</p>')
+            r = None
         if r:
             cls = "warn" if r["confound_risk"] != "LOW" else "ok"
-            parts.append(f'<p class="note">Group recovery by cross-validated k-NN: phenotype '
+            parts.append(f'<p class="note">Group recovery by cross-validated k-NN '
+                         f'({html.escape(r["metric"])}, k = {r["k"]}): phenotype '
                          f'<b>{r["phenotype"]:.1%}</b>, annotation counts alone <b>{r["annotation_only"]:.1%}</b>, '
-                         f'majority baseline {r["majority_baseline"]:.1%} → annotation-confound risk '
+                         f'label-permutation baseline {r["permutation_baseline"]:.1%} → '
+                         f'annotation-predictability risk '
                          f'<span class="{cls}">{html.escape(r["confound_risk"])}</span>. '
                          f'{html.escape(r["note"])}</p>')
 

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass, field
 
@@ -350,7 +351,10 @@ def from_hpo_table(
 
 
 def from_phenopackets(path: str, ontology: Ontology | str | None = None) -> Cohort:
-    """Cohort from GA4GH Phenopackets (v2 JSON): a directory of files, or one file.
+    """Cohort from GA4GH Phenopackets (v2 JSON): a directory tree of files, or one file.
+
+    Directories are searched recursively, because real corpora nest their packets one
+    folder per gene or disease.
 
     Reads ``phenotypicFeatures`` (id, ``excluded``, ``onset``), the subject id and
     sex, and, where present, the disease and gene from ``interpretations`` /
@@ -359,8 +363,10 @@ def from_phenopackets(path: str, ontology: Ontology | str | None = None) -> Coho
     """
     if isinstance(ontology, str):
         ontology = Ontology.from_obo(ontology)
-    files = ([os.path.join(path, f) for f in sorted(os.listdir(path)) if f.endswith(".json")]
-             if os.path.isdir(path) else [path])
+    if os.path.isdir(path):
+        files = sorted(str(f) for f in Path(path).rglob("*.json"))     # corpora nest by gene/disease
+    else:
+        files = [path]
     if not files:
         raise ValueError(f"no .json phenopackets found in {path!r}")
 

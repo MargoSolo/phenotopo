@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "If you use phenotopo, please cite it as below."
 title: "phenotopo: a QC and explainability toolkit for phenotype cohorts"
 type: software
-version: 0.5.1
-date-released: "2026-09-05"
+version: 0.6.0
+date-released: "2026-09-06"
 license: MIT
 repository-code: "https://github.com/MargoSolo/phenotopo"
 url: "https://pypi.org/project/phenotopo/"

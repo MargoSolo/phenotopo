@@ -9,7 +9,7 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22358033.svg)](https://doi.org/10.5281/zenodo.22358033)
 
 <p align="center"><img src="examples/figures/social_preview.png" width="860" alt="phenotopo: annotation-depth QC, discordant patients, and connectivity verdicts that survive six configurations"></p>
-[![version](https://img.shields.io/badge/version-0.5.1-informational.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-0.6.0-informational.svg)](CHANGELOG.md)
 
 Two things go wrong when a rare-disease cohort is analysed by HPO terms.
 
@@ -318,6 +318,36 @@ modularity), so large groups are not rewarded merely for being large.
 | `phenotopo.data` | `synthetic_cohort`, `synthetic_hpo_cohort`, `synthetic_hierarchy`, `synthetic_term_lists` |
 | `phenotopo.cli` | `phenotopo demo`, `phenotopo report`, `phenotopo ontology install/path` |
 
+## Does it hold on real data?
+
+Two benchmarks, both reproducible from this repository — full write-ups in
+[`benchmarks/`](benchmarks/).
+
+**[Real published cases](benchmarks/phenopacket_store/)** — 2,691 cases from
+[Phenopacket Store](https://github.com/monarch-initiative/phenopacket-store) 0.1.27,
+the 16 rare diseases with n ≥ 80, curated by the Monarch Initiative and not by anyone
+involved here:
+
+- phenotype recovers the **reported diagnosis in 93.8 %** of cases (17.2 % baseline);
+- all 16 diseases are robustly cohesive and 104 pairs robustly separated, with
+  **exactly one blend** — two chromatin-related neurodevelopmental syndromes whose
+  published phenotypes genuinely are not separable;
+- annotation-confound risk is **LOW** across the 16 diseases and **HIGH** for the most
+  unequally annotated pair — the check fires where it should and stays quiet where it
+  should;
+- KBG vs Glass syndrome: *macrodontia* comes out top at +63 pp, the textbook hallmark
+  of KBG, recovered without being told;
+- using **excluded** phenotypes lifts diagnosis recovery from 93.8 % to **96.0 %**.
+
+**[Permutation calibration](benchmarks/permutation_calibration.py)** — on 200 simulated
+null cohorts the max-statistic permutation raises a false term in **5.0 %** of them, at
+a nominal 5 %, against 75 % for uncorrected testing; on planted effects it is also
+*more* powerful than Benjamini–Hochberg (87.9 % vs 81.8 %), because the max-statistic
+null absorbs the ancestor correlation that makes BH conservative on ontology data.
+
+The published-case corpus is biased toward typical presentations and its labels are the
+reported diagnoses; the benchmark write-up states what that does and does not license.
+
 ## Scope
 
 `phenotopo` deliberately does **not** prioritise genes or diagnoses for a single
@@ -355,8 +385,8 @@ pytest -q
 Runs on synthetic data only, by design: **no patient data belongs in this
 repository**, and `.gitignore` blocks ontology dumps, cohort files and analysis
 output. The figures in this README come from synthetic cohorts with designed
-structure, which makes them checkable but not evidence about real cohorts; a
-case study on public, published cases (Phenopacket Store) is the next release.
+structure, which makes them checkable against ground truth but is not evidence about
+real cohorts — for that, see the benchmarks below.
 
 ## References
 

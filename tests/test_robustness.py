@@ -36,3 +36,17 @@ def test_small_groups_are_dropped():
 def test_forest_plot_runs():
     ax = plot_forest(_result())
     assert ax is not None
+
+
+def test_forest_can_limit_the_between_group_rows():
+    """Row count grows quadratically with groups; past ~20 rows the plot is a wall."""
+    res = _result()
+    full = plot_forest(res)
+    limited = plot_forest(res, top_between=3)
+    n_self = int(res["summary"]["self"].sum())
+    assert len(full.get_yticklabels()) == len(res["summary"])
+    assert len(limited.get_yticklabels()) == 3 + n_self
+    kept = [t.get_text() for t in limited.get_yticklabels() if "(self)" not in t.get_text()]
+    between = res["summary"][~res["summary"]["self"]]["ratio"].sort_values(ascending=False)
+    assert len(kept) == 3                                     # the most connected pairs survive
+    assert "top 3 of" in " ".join(t.get_text() for t in limited.texts)

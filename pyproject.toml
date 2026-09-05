@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "phenotopo"
-version = "0.5.1"
+version = "0.6.0"
 description = "A QC and explainability toolkit for phenotype cohorts: HPO/Phenopacket quality control, annotation-bias checks, outliers, ontology-aware group comparison and robust cohort structure."
 readme = "README.md"
 license = "MIT"

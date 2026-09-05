@@ -2,6 +2,32 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is [SemVer](https://semver.org/).
 
+## [0.6.0] — 2026-09-06
+
+### Added
+- **Benchmarks on real, published cases** (`benchmarks/phenopacket_store/`): five case
+  studies over 2,691 cases from Phenopacket Store 0.1.27 — diagnosis recovery 93.8 %
+  against a 17.2 % baseline, 16/16 diseases robustly cohesive with a single blended
+  pair, the annotation-confound check LOW across all diseases and HIGH for the most
+  unequally annotated pair, macrodontia recovered as the top KBG-vs-Glass
+  discriminator, and a 2.2-point gain from using explicitly excluded phenotypes.
+  Corpora are cached outside the repository; only derived tables and figures are kept.
+- **`benchmarks/permutation_calibration.py`** — the FWER and power simulation that
+  `explain_groups` refers to: the max-statistic permutation lands on 5.0 % at a nominal
+  5 % (uncorrected: 75 %) and is more powerful than Benjamini–Hochberg on planted
+  effects (87.9 % vs 81.8 %).
+
+### Changed
+- `annotation_bias` reports balanced accuracy against a label-permutation baseline
+  rather than plain accuracy against the majority class, guards `k` on small folds, and
+  takes configurable risk `bands`.
+- `phenotype_qc` separates absolute completeness heuristics from cohort-relative
+  anomalies and warns at cohort level when the whole cohort is thinly phenotyped, so a
+  uniformly under-annotated cohort is no longer invisible to a percentile rule.
+- `explain_groups` describes its adjustment precisely as a single-step max-statistic
+  label permutation.
+- `from_phenopackets` searches directory trees; real corpora nest one folder per gene.
+
 ## [0.5.1] — 2026-09-05
 
 ### Fixed

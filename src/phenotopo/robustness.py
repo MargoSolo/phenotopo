@@ -107,13 +107,20 @@ def connectivity_robustness(
             "thresholds": {"blend": blend, "separation": separation, "alpha": alpha, "min_size": min_size}}
 
 
-def plot_forest(result: dict, short_names: dict | None = None, ax=None, colours=None):
-    """Forest plot of every pair under every configuration, with verdicts.
+def plot_forest(result: dict, short_names: dict | None = None, ax=None, colours=None,
+                top_between: int | None = None):
+    """Forest plot of the pairs under every configuration, with verdicts.
 
-    One row per pair (between-system rows above the rule, within-system below);
-    for each row one point + 95 % bootstrap CI per configuration - colour =
-    distance, size = k. Points that agree across configurations are the visual
-    proof of robustness; the ✓ verdicts are the protocol's conclusion.
+    One row per pair (between-group rows above the rule, within-group below); for each
+    row one point + 95 % bootstrap CI per configuration - colour = distance, size = k.
+    Points that agree across configurations are the visual proof of robustness; the
+    ✓ verdicts are the protocol's conclusion.
+
+    ``top_between`` keeps only that many between-group rows - the most connected ones,
+    which are the interesting end - and notes how many were left out. Group count grows
+    the row count quadratically (16 groups is 136 rows), and past roughly twenty rows a
+    forest plot is a wall rather than a figure; the full table is always in
+    ``result["summary"]``. Within-group rows are always kept: there is one per group.
     """
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
@@ -131,6 +138,12 @@ def plot_forest(result: dict, short_names: dict | None = None, ax=None, colours=
         return f"{sn.get(a, a)} – {sn.get(b, b)}"
 
     off_rows = summary[~summary["self"]].index.tolist(); self_rows = summary[summary["self"]].index.tolist()
+    hidden = 0
+    if top_between is not None and len(off_rows) > top_between:
+        ranked = summary.loc[off_rows, "ratio"].sort_values(ascending=False)
+        keep = set(ranked.head(top_between).index)
+        hidden = len(off_rows) - len(keep)
+        off_rows = [p for p in off_rows if p in keep]
     order = off_rows + self_rows
     th = result["thresholds"]
     if ax is None:
@@ -151,7 +164,8 @@ def plot_forest(result: dict, short_names: dict | None = None, ax=None, colours=
         ax.axvline(x, color="gray", lw=0.9 if x == 1 else 0.7, ls=ls, zorder=0)
     if self_rows and off_rows:
         ax.axhline(len(self_rows) - 0.5, color="black", lw=0.6)
-        ax.text(0.5, len(order) - 0.5 + 0.55, "between groups", fontsize=8, style="italic", color="gray", va="center")
+        heading = "between groups" if not hidden else f"between groups (top {len(off_rows)} of {len(off_rows) + hidden} by ratio)"
+        ax.text(0.5, len(order) - 0.5 + 0.55, heading, fontsize=8, style="italic", color="gray", va="center")
         ax.text(0.5, len(self_rows) - 0.5 - 0.45, "within group (cohesion)", fontsize=8, style="italic", color="gray", va="top")
     ax.set_yticks(range(len(order))[::-1]); ax.set_yticklabels([label_of(p) for p in order], fontsize=8.5)
     ax.set_xscale("log")

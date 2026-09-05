@@ -21,3 +21,8 @@ venv/
 *.svg
 # ... except the README figures produced by the synthetic example
 !examples/figures/*.png
+# benchmark corpora are cached in ~/.cache/phenotopo, never in the repository
+benchmarks/**/data/
+# ... but the derived results of the benchmarks are the evidence, so they are kept
+!benchmarks/**/*.csv
+!benchmarks/**/figures/*.png
